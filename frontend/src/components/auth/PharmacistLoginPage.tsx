@@ -35,8 +35,8 @@ export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack
   };
 
   return (
-    <div className="min-h-screen bg-[#E6F4F0] flex items-center justify-center p-4 sm:p-6 font-sans text-[#12332C]">
-      <div className="w-full max-w-md bg-[#F3FAF7] border border-[#D9E8E3] rounded-[32px] p-6 sm:p-8 shadow-app-frame">
+    <div className="min-h-screen bg-transparent flex items-center justify-center p-4 sm:p-6 font-sans text-[#12332C] relative z-10">
+      <div className="w-full max-w-md bg-[#F3FAF7]/92 backdrop-blur-md border border-[#D9E8E3] rounded-[32px] p-6 sm:p-8 shadow-app-frame">
         {/* Navigation Back */}
         <button
           onClick={onBack}

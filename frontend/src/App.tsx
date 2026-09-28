@@ -23,6 +23,7 @@ import { DataQualityPage } from './pages/DataQualityPage';
 
 import { DashboardSummary } from './types';
 import { api } from './services/api';
+import { HospitalBackground } from './components/HospitalBackground';
 
 const AppContent: React.FC = () => {
   const { role, user, isAuthenticated, isLoginModalOpen, setIsLoginModalOpen } = useAuth();
@@ -86,9 +87,9 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#E6F4F0] min-h-screen p-3 md:p-5 lg:p-6 flex items-center justify-center font-sans antialiased text-[#12332C]">
+    <div className="bg-transparent min-h-screen p-3 md:p-5 lg:p-6 flex items-center justify-center font-sans antialiased text-[#12332C] relative z-10">
       {/* Outer Application Window with reference rounded-3xl and border */}
-      <div className="w-full max-w-[1580px] h-[92vh] min-h-[760px] bg-[#F3FAF7] border border-[#D9E8E3] rounded-[30px] shadow-app-frame flex overflow-hidden relative">
+      <div className="w-full max-w-[1580px] h-[92vh] min-h-[760px] bg-[#F3FAF7]/92 backdrop-blur-md border border-[#D9E8E3] rounded-[30px] shadow-app-frame flex overflow-hidden relative">
         {/* Left Navigation Sidebar */}
         <Sidebar
           activeTab={activeTab}
@@ -99,7 +100,7 @@ const AppContent: React.FC = () => {
         />
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F3FAF7]">
+        <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F3FAF7]/50 backdrop-blur-xs">
           {/* Top Navigation Header */}
           <Header
             currentRole={role}
@@ -113,7 +114,7 @@ const AppContent: React.FC = () => {
           />
 
           {/* Dynamic Scrollable Page Body */}
-          <main className="flex-1 overflow-y-auto bg-[#F3FAF7]">
+          <main className="flex-1 overflow-y-auto bg-transparent">
             {activeTab === 'dashboard' && (
               <DashboardPage
                 summary={summary}
@@ -193,7 +194,15 @@ const AppContent: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AppContent />
+      <div className="relative min-h-screen overflow-x-hidden">
+        {/* Hospital-Themed Ghibli Background & Soft Mint Overlay */}
+        <HospitalBackground />
+
+        {/* MediSentinel UI Layer */}
+        <div className="relative z-10">
+          <AppContent />
+        </div>
+      </div>
     </AuthProvider>
   );
 };
