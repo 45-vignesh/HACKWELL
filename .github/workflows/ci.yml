@@ -43,11 +43,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
+      - name: Initialize Database
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:password@localhost:5432/medisentinel
+          PYTHONPATH: .
+        run: |
+          python - <<'PY'
+          from app import models
+          from app.database import Base, engine
+
+          Base.metadata.create_all(bind=engine)
+          print("Database schema initialized successfully")
+          PY
+
       - name: Run Backend Tests
         env:
           DATABASE_URL: postgresql+psycopg://postgres:password@localhost:5432/medisentinel
+          PYTHONPATH: backend
         run: |
-          pytest -v
+          pytest -v backend/tests
 
   frontend-build:
     name: Frontend Build & Typecheck
