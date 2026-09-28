@@ -315,6 +315,7 @@ class LoginRequest(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
     demo_role: Optional[str] = None
+    role: Optional[str] = None
 
 class LoginResponse(BaseModel):
     token: str

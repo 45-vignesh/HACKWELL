@@ -2,28 +2,30 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { api } from '../services/api';
 
+export type AuthPortalView = 'selection' | 'data_manager' | 'pharmacist' | 'admin';
+
 interface AuthContextType {
   user: User | null;
   role: UserRole;
   token: string | null;
+  isAuthenticated: boolean;
+  authPortalView: AuthPortalView;
+  setAuthPortalView: (view: AuthPortalView) => void;
+  loginWithCredentials: (username: string, password: string, role?: string) => Promise<any>;
   switchRole: (newRole: UserRole) => Promise<void>;
   logout: () => void;
   isLoginModalOpen: boolean;
   setIsLoginModalOpen: (open: boolean) => void;
 }
 
-const defaultUser: User = {
-  id: 2,
-  username: 'pharmacist',
-  role: 'PHARMACIST',
-  display_name: 'Dr. Sarah Alston',
-  title: 'Chief Pharmacist & Clinical Approver'
-};
-
 const AuthContext = createContext<AuthContextType>({
-  user: defaultUser,
+  user: null,
   role: 'PHARMACIST',
   token: null,
+  isAuthenticated: false,
+  authPortalView: 'selection',
+  setAuthPortalView: () => {},
+  loginWithCredentials: async () => {},
   switchRole: async () => {},
   logout: () => {},
   isLoginModalOpen: false,
@@ -31,9 +33,10 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(defaultUser);
+  const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<UserRole>('PHARMACIST');
   const [token, setToken] = useState<string | null>(null);
+  const [authPortalView, setAuthPortalView] = useState<AuthPortalView>('selection');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   useEffect(() => {
@@ -42,26 +45,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedUser = localStorage.getItem('medisentinel_user');
     const savedName = localStorage.getItem('medisentinel_display_name');
 
-    if (savedRole) {
+    if (savedToken && savedRole) {
       setRole(savedRole);
       setUser({
         id: savedRole === 'DATA_MANAGER' ? 1 : (savedRole === 'ADMIN' ? 3 : 2),
         username: savedUser || (savedRole.toLowerCase()),
         role: savedRole,
-        display_name: savedName || (savedRole === 'DATA_MANAGER' ? 'Alex Chen' : (savedRole === 'ADMIN' ? 'Elena Rostova' : 'Dr. Sarah Alston')),
+        display_name: savedName || (savedRole === 'DATA_MANAGER' ? 'Liam Patel' : (savedRole === 'ADMIN' ? 'Marcus Vance' : 'Dr. Sarah Alston')),
         title: savedRole === 'DATA_MANAGER' ? 'Inventory Data Specialist' : (savedRole === 'ADMIN' ? 'Hospital Systems Administrator' : 'Chief Pharmacist & Clinical Approver')
       });
       setToken(savedToken);
-    } else {
-      // Initialize with demo pharmacist token
-      switchRole('PHARMACIST');
     }
   }, []);
+
+  const loginWithCredentials = async (username: string, password: string, portalRole?: string) => {
+    const res = await api.login({ username, password, role: portalRole });
+    if (res?.user && res?.token) {
+      setUser(res.user);
+      setRole(res.user.role);
+      setToken(res.token);
+      setAuthPortalView('selection');
+      setIsLoginModalOpen(false);
+    }
+    return res;
+  };
 
   const switchRole = async (newRole: UserRole) => {
     try {
       const res = await api.login({ demo_role: newRole });
-      if (res?.user) {
+      if (res?.user && res?.token) {
         setUser(res.user);
         setRole(res.user.role);
         setToken(res.token);
@@ -79,10 +91,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('medisentinel_user');
     localStorage.removeItem('medisentinel_display_name');
     setUser(null);
-    setRole('PHARMACIST');
     setToken(null);
-    setIsLoginModalOpen(true);
+    setAuthPortalView('selection');
+    setIsLoginModalOpen(false);
   };
+
+  const isAuthenticated = !!(token && user);
 
   return (
     <AuthContext.Provider
@@ -90,6 +104,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         role,
         token,
+        isAuthenticated,
+        authPortalView,
+        setAuthPortalView,
+        loginWithCredentials,
         switchRole,
         logout,
         isLoginModalOpen,

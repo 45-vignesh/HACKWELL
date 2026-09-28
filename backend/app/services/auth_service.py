@@ -11,25 +11,28 @@ from app.models.entities import User, UserRole
 
 AUTH_SECRET = "medisentinel-data-governance-secret-key-2026"
 
-# Demo Seed Users
+# Demo Seed Users with Official Passwords
 DEFAULT_DEMO_USERS = [
     {
         "username": "data_manager",
         "role": UserRole.DATA_MANAGER.value,
-        "display_name": "Alex Chen",
-        "title": "Inventory Data Specialist"
+        "display_name": "Liam Patel",
+        "title": "Inventory Data Specialist",
+        "password": "DataManager@123"
     },
     {
         "username": "pharmacist",
         "role": UserRole.PHARMACIST.value,
         "display_name": "Dr. Sarah Alston",
-        "title": "Chief Pharmacist & Clinical Approver"
+        "title": "Chief Pharmacist & Clinical Approver",
+        "password": "Pharmacist@123"
     },
     {
         "username": "admin",
         "role": UserRole.ADMIN.value,
-        "display_name": "Elena Rostova",
-        "title": "Hospital Systems Administrator"
+        "display_name": "Marcus Vance",
+        "title": "Hospital Systems Administrator",
+        "password": "Admin@123"
     }
 ]
 

@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { AIAssistantDrawer } from './components/AIAssistantDrawer';
 import { MedicineDetailModal } from './components/MedicineDetailModal';
 import { LoginModal } from './components/LoginModal';
+import { AuthGateway } from './components/auth/AuthGateway';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 import { DashboardPage } from './pages/DashboardPage';
@@ -24,7 +25,7 @@ import { DashboardSummary } from './types';
 import { api } from './services/api';
 
 const AppContent: React.FC = () => {
-  const { role, user, isLoginModalOpen, setIsLoginModalOpen } = useAuth();
+  const { role, user, isAuthenticated, isLoginModalOpen, setIsLoginModalOpen } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,12 +49,18 @@ const AppContent: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchSummary();
-    const interval = setInterval(() => {
+    if (isAuthenticated) {
       fetchSummary();
-    }, 20000);
-    return () => clearInterval(interval);
-  }, []);
+      const interval = setInterval(() => {
+        fetchSummary();
+      }, 20000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return <AuthGateway />;
+  }
 
   const handleNavigateToForecast = (medId: number) => {
     setForecastMedicineId(medId);

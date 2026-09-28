@@ -177,7 +177,7 @@ export const api = {
   },
 
   // Authentication & RBAC
-  login: async (payload: { demo_role?: string; username?: string; password?: string }) => {
+  login: async (payload: { demo_role?: string; username?: string; password?: string; role?: string }) => {
     const res = await client.post('/api/auth/login', payload);
     if (res.data?.token) {
       localStorage.setItem('medisentinel_token', res.data.token);

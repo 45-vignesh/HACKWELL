@@ -48,48 +48,73 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             )
         )
 
-    # 2. Login by username
+    # 2. Login by username & password
     if not payload.username:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or demo_role required.")
 
+    if not payload.password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password is required.")
+
     uname = payload.username.lower().strip()
     matched = next((u for u in DEFAULT_DEMO_USERS if u["username"] == uname), None)
-    if not matched:
+    
+    user_id = 1
+    user_username = uname
+    user_role = ""
+    user_display = ""
+    user_title = ""
+    user_pass = ""
+
+    if matched:
+        user_role = matched["role"]
+        user_display = matched["display_name"]
+        user_title = matched["title"]
+        user_pass = matched.get("password", "")
+    else:
         # Fallback to database user query
         db_user = db.query(User).filter(User.username == uname).first()
         if not db_user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
-        token = create_access_token(
-            username=db_user.username,
-            role=db_user.role.value if hasattr(db_user.role, 'value') else db_user.role,
-            display_name=db_user.display_name,
-            title=db_user.title
-        )
-        return LoginResponse(
-            token=token,
-            user=UserResponse(
-                id=db_user.id,
-                username=db_user.username,
-                role=db_user.role.value if hasattr(db_user.role, 'value') else db_user.role,
-                display_name=db_user.display_name,
-                title=db_user.title
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password.")
+        user_id = db_user.id
+        user_username = db_user.username
+        user_role = db_user.role.value if hasattr(db_user.role, 'value') else db_user.role
+        user_display = db_user.display_name
+        user_title = db_user.title or ""
+        # Default fallback password for DB users matching role
+        if user_role == UserRole.DATA_MANAGER.value:
+            user_pass = "DataManager@123"
+        elif user_role == UserRole.PHARMACIST.value:
+            user_pass = "Pharmacist@123"
+        elif user_role == UserRole.ADMIN.value:
+            user_pass = "Admin@123"
+
+    # Enforce password check
+    if payload.password != user_pass:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password.")
+
+    # Enforce portal role restriction if specified
+    if payload.role:
+        expected_role = payload.role.upper().replace(" ", "_")
+        if user_role != expected_role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. User '{uname}' does not have the {expected_role} role required for this portal."
             )
-        )
 
     token = create_access_token(
-        username=matched["username"],
-        role=matched["role"],
-        display_name=matched["display_name"],
-        title=matched["title"]
+        username=user_username,
+        role=user_role,
+        display_name=user_display,
+        title=user_title
     )
     return LoginResponse(
         token=token,
         user=UserResponse(
-            id=1,
-            username=matched["username"],
-            role=matched["role"],
-            display_name=matched["display_name"],
-            title=matched["title"]
+            id=user_id,
+            username=user_username,
+            role=user_role,
+            display_name=user_display,
+            title=user_title
         )
     )
 

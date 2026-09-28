@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles, Zap, RefreshCw, Calendar, Shield, User, ChevronDown } from 'lucide-react';
+import { Search, Sparkles, Zap, RefreshCw, Calendar, Shield, User, ChevronDown, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types';
 
@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onRefreshData,
   isRefreshing = false
 }) => {
-  const { user, role, switchRole, setIsLoginModalOpen } = useAuth();
+  const { user, role, switchRole, setIsLoginModalOpen, logout } = useAuth();
 
   // Today formatted like "28 Sep, 2026"
   const formattedDate = new Date().toLocaleDateString('en-GB', {
@@ -105,6 +105,16 @@ export const Header: React.FC<HeaderProps> = ({
               {user?.display_name || 'Dr. Sarah Alston'}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-[#647772] group-hover:text-[#006B4F] transition-colors" />
+          </button>
+
+          {/* Dedicated Logout Action */}
+          <button
+            onClick={logout}
+            title="Sign out of MediSentinel"
+            className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#F3FAF7] hover:bg-red-50 border border-[#D9E8E3] hover:border-red-200 text-[#647772] hover:text-red-600 transition-all text-xs font-semibold"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </div>
