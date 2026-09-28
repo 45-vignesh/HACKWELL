@@ -22,7 +22,8 @@ from app.services.auth_service import (
     get_current_user,
     require_role,
     hash_password,
-    verify_password
+    verify_password,
+    audit_login_coverage
 )
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication & RBAC"])
@@ -237,31 +238,22 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
     uname = payload.username.lower().strip()
     matched = next((u for u in DEFAULT_DEMO_USERS if u["username"] == uname), None)
-    
-    user_id = 1
-    user_username = uname
-    user_role = ""
-    user_display = ""
-    user_title = ""
-    user_pass = ""
-    db_user = None
+    db_user = db.query(User).filter(func.lower(User.username) == uname).first()
 
-    if matched:
-        user_role = matched["role"]
-        user_display = matched["display_name"]
-        user_title = matched["title"]
-        user_pass = matched.get("password", "")
-    else:
-        # Fallback to database user query
-        db_user = db.query(User).filter(User.username == uname).first()
-        if not db_user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password.")
-        user_id = db_user.id
-        user_username = db_user.username
-        user_role = db_user.role.value if hasattr(db_user.role, 'value') else db_user.role
-        user_display = db_user.display_name
-        user_title = db_user.title or ""
-        # Default fallback password for DB users matching role
+    if not db_user and not matched:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password.")
+
+    if db_user and not db_user.active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated.")
+
+    user_id = db_user.id if db_user else 1
+    user_username = db_user.username if db_user else uname
+    user_role = (db_user.role.value if hasattr(db_user.role, 'value') else str(db_user.role)) if db_user else matched["role"]
+    user_display = db_user.display_name if db_user else matched["display_name"]
+    user_title = (db_user.title or "") if db_user else matched.get("title", "")
+    user_pass = matched.get("password", "") if matched else ""
+
+    if not user_pass:
         if user_role == UserRole.DATA_MANAGER.value:
             user_pass = "DataManager@123"
         elif user_role == UserRole.PHARMACIST.value:
@@ -273,9 +265,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     password_valid = False
     if db_user and db_user.password_hash:
         password_valid = verify_password(payload.password, db_user.password_hash)
-    elif matched:
+    if not password_valid and matched:
         password_valid = (payload.password == matched.get("password", ""))
-    else:
+    if not password_valid and user_pass:
         password_valid = (payload.password == user_pass)
 
     if not password_valid:
@@ -415,3 +407,8 @@ def get_users(db: Session = Depends(get_db)):
             branch_name=u.branch.name if u.branch else None
         ))
     return results
+
+@router.get("/coverage-report")
+def get_login_coverage_report(db: Session = Depends(get_db)):
+    """Return comprehensive audit report of company and branch login coverage."""
+    return audit_login_coverage(db)
