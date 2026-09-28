@@ -27,6 +27,7 @@ export interface InventoryItem {
   min_level: number;
   max_level: number;
   safety_stock: number;
+  reorder_point?: number;
   daily_consumption_avg: number;
   days_remaining: number;
   risk_level: RiskLevel;
@@ -34,6 +35,11 @@ export interface InventoryItem {
   nearest_expiry_date?: string;
   days_to_nearest_expiry?: number;
   last_restocked_at?: string;
+  data_source?: string;
+  risk_scenario?: string;
+  supplier_name?: string;
+  lead_time_days?: number;
+  unit_price_inr?: number;
 }
 
 type str = string;

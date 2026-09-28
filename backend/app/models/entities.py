@@ -3,7 +3,7 @@ from datetime import datetime, date
 from typing import Optional, List
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, Date, DateTime,
-    ForeignKey, Text, Enum, JSON, Index
+    ForeignKey, Text, Enum, JSON, Index, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -153,12 +153,22 @@ class Inventory(Base):
     reserved_stock = Column(Integer, default=0)
     min_level = Column(Integer, default=20)
     max_level = Column(Integer, default=200)
+    safety_stock = Column(Integer, default=30)
+    reorder_point = Column(Integer, default=50)
+    avg_daily_usage = Column(Float, default=10.0)
+    days_of_stock = Column(Float, default=15.0)
+    data_source = Column(String(50), default="SYNTHETIC")
+    risk_scenario = Column(String(50), default="NORMAL")
     last_restocked_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     medicine = relationship("Medicine", back_populates="inventory_items")
     department = relationship("Department", back_populates="inventory_items")
     ward = relationship("Ward", back_populates="inventory_items")
+
+    __table_args__ = (
+        UniqueConstraint("medicine_id", "ward_id", name="uq_inventory_med_ward"),
+    )
 
 class InventoryBatch(Base):
     __tablename__ = "inventory_batches"
@@ -177,6 +187,10 @@ class InventoryBatch(Base):
 
     medicine = relationship("Medicine", back_populates="batches")
     ward = relationship("Ward", back_populates="batches")
+
+    __table_args__ = (
+        UniqueConstraint("medicine_id", "ward_id", "batch_number", name="uq_batch_med_ward_num"),
+    )
 
 class DailyUsage(Base):
     __tablename__ = "daily_usage"
@@ -225,6 +239,10 @@ class SupplierMedicine(Base):
 
     supplier = relationship("Supplier", back_populates="medicines")
     medicine = relationship("Medicine", back_populates="supplier_offerings")
+
+    __table_args__ = (
+        UniqueConstraint("supplier_id", "medicine_id", name="uq_supplier_med"),
+    )
 
 class PurchaseOrder(Base):
     __tablename__ = "purchase_orders"

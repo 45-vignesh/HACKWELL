@@ -80,6 +80,7 @@ class InventoryItemResponse(BaseModel):
     min_level: int
     max_level: int
     safety_stock: int
+    reorder_point: Optional[int] = 50
     daily_consumption_avg: float
     days_remaining: float
     risk_level: RiskLevel
@@ -87,6 +88,11 @@ class InventoryItemResponse(BaseModel):
     nearest_expiry_date: Optional[date] = None
     days_to_nearest_expiry: Optional[int] = None
     last_restocked_at: Optional[datetime] = None
+    data_source: str = "SYNTHETIC"
+    risk_scenario: Optional[str] = "NORMAL"
+    supplier_name: Optional[str] = None
+    lead_time_days: Optional[int] = None
+    unit_price_inr: Optional[float] = None
 
 class ForecastPoint(BaseModel):
     date: str

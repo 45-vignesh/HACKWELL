@@ -32,35 +32,46 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
   if (!inventoryId) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-[#16171d] border border-white/[0.1] rounded-[28px] w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white border border-[#D9E8E3] rounded-[28px] w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-[#12332C]">
         {/* Modal Header */}
-        <div className="p-6 border-b border-white/[0.07] flex items-center justify-between bg-[#1c1d25]">
+        <div className="p-6 border-b border-[#D9E8E3] flex items-center justify-between bg-[#F3FAF7]">
           {data ? (
             <div>
-              <div className="flex items-center space-x-3">
-                <h2 className="text-lg font-bold text-white tracking-tight">{data.medicine.name}</h2>
+              <div className="flex items-center space-x-3 flex-wrap gap-y-1">
+                <h2 className="text-lg font-bold text-[#12332C] tracking-tight">{data.medicine.name}</h2>
                 <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                   data.medicine.criticality === 'CRITICAL'
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    ? 'bg-[#DC2626]/15 text-[#DC2626] border border-[#DC2626]/30'
+                    : 'bg-[#F59E0B]/15 text-[#B45309] border border-[#F59E0B]/30'
                 }`}>
                   {data.medicine.criticality}
                 </span>
-                <span className="text-xs text-slate-400 font-mono">Code: {data.medicine.code}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                <span className="text-xs text-[#647772] font-mono">Code: {data.medicine.code}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-medium bg-[#008F83]/15 text-[#008F83] border border-[#008F83]/25">
                   Usage: {data.usage_source || 'MIMIC-Derived'}
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-medium bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-medium bg-[#F59E0B]/15 text-[#B45309] border border-[#F59E0B]/25">
                   Stock: Synthetic
                 </span>
+                {data.risk_scenario && data.risk_scenario !== 'NORMAL' && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    data.risk_scenario === 'LOW_STOCK'
+                      ? 'bg-[#DC2626]/15 text-[#DC2626] border border-[#DC2626]/30'
+                      : data.risk_scenario === 'EXPIRY_RISK'
+                      ? 'bg-[#F59E0B]/15 text-[#B45309] border border-[#F59E0B]/30'
+                      : 'bg-[#008F83]/15 text-[#008F83] border border-[#008F83]/30'
+                  }`}>
+                    Scenario: {data.risk_scenario}
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Generic: <span className="text-slate-300 font-medium">{data.medicine.generic_name}</span> | Ward: <span className="text-[#9484f7] font-semibold">{data.ward.name}</span>
+              <p className="text-xs text-[#647772] mt-1">
+                Generic: <span className="text-[#12332C] font-medium">{data.medicine.generic_name}</span> | Ward: <span className="text-[#006B4F] font-semibold">{data.ward.name}</span>
               </p>
             </div>
           ) : (
-            <div className="h-10 w-48 bg-white/[0.05] animate-pulse rounded-full"></div>
+            <div className="h-10 w-48 bg-[#D9E8E3]/50 animate-pulse rounded-full"></div>
           )}
 
           <div className="flex items-center space-x-2">
@@ -70,7 +81,7 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
                   onClose();
                   onNavigateToForecast(data.medicine.id);
                 }}
-                className="ref-pill-btn flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-[#7c5cfc]/20 text-[#a890fe] hover:bg-[#7c5cfc]/30 text-xs font-semibold border border-[#7c5cfc]/40 transition-all"
+                className="ref-pill-btn flex items-center space-x-1.5 px-4 py-1.5 rounded-full bg-[#006B4F] text-white hover:bg-[#004D3A] text-xs font-semibold shadow-sm transition-all"
               >
                 <span>View Full Forecast</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -78,7 +89,7 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
             )}
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-full bg-[#D9E8E3]/60 hover:bg-[#D9E8E3] text-[#647772] hover:text-[#12332C] flex items-center justify-center transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -86,115 +97,117 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#F3FAF7]">
           {loading || !data ? (
-            <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
+            <div className="flex items-center justify-center h-64 text-[#647772] text-sm">
               Loading inventory telemetry...
             </div>
           ) : (
             <>
               {/* Metric Highlights */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-[#1c1d25] border border-white/[0.07] rounded-2xl p-4">
-                  <div className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Current Stock</div>
-                  <div className="text-xl font-bold text-white mt-1">
+                <div className="bg-white border border-[#D9E8E3] rounded-2xl p-4 shadow-sm">
+                  <div className="text-[11px] text-[#647772] uppercase tracking-wider font-semibold">Current Stock</div>
+                  <div className="text-xl font-bold text-[#12332C] mt-1">
                     {data.current_stock}{' '}
-                    <span className="text-xs font-normal text-slate-400">{data.medicine.unit}</span>
+                    <span className="text-xs font-normal text-[#647772]">{data.medicine.unit}</span>
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-1">
+                  <div className="text-[10px] text-[#647772] mt-1">
                     Min: {data.min_level} | Max: {data.max_level}
                   </div>
                 </div>
 
-                <div className="bg-[#1c1d25] border border-white/[0.07] rounded-2xl p-4">
-                  <div className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Safety Buffer</div>
-                  <div className="text-xl font-bold text-[#9484f7] mt-1">
-                    {data.medicine.safety_stock}{' '}
-                    <span className="text-xs font-normal text-slate-400">{data.medicine.unit}</span>
+                <div className="bg-white border border-[#D9E8E3] rounded-2xl p-4 shadow-sm">
+                  <div className="text-[11px] text-[#647772] uppercase tracking-wider font-semibold">Safety Buffer</div>
+                  <div className="text-xl font-bold text-[#006B4F] mt-1">
+                    {data.safety_stock || data.medicine.safety_stock}{' '}
+                    <span className="text-xs font-normal text-[#647772]">{data.medicine.unit}</span>
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-1">Required buffer</div>
+                  <div className="text-[10px] text-[#647772] mt-1">
+                    Reorder: {data.reorder_point || data.medicine.reorder_threshold} {data.medicine.unit}
+                  </div>
                 </div>
 
-                <div className="bg-[#1c1d25] border border-white/[0.07] rounded-2xl p-4">
-                  <div className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Unit Cost</div>
-                  <div className="text-xl font-bold text-white mt-1">
+                <div className="bg-white border border-[#D9E8E3] rounded-2xl p-4 shadow-sm">
+                  <div className="text-[11px] text-[#647772] uppercase tracking-wider font-semibold">Unit Cost</div>
+                  <div className="text-xl font-bold text-[#12332C] mt-1">
                     ₹{data.medicine.unit_cost.toFixed(2)}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-1">Hospital contract rate</div>
+                  <div className="text-[10px] text-[#647772] mt-1">Hospital contract rate</div>
                 </div>
 
-                <div className="bg-[#1c1d25] border border-white/[0.07] rounded-2xl p-4">
-                  <div className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Hospital Total</div>
-                  <div className="text-xl font-bold text-[#a890fe] mt-1">
+                <div className="bg-white border border-[#D9E8E3] rounded-2xl p-4 shadow-sm">
+                  <div className="text-[11px] text-[#647772] uppercase tracking-wider font-semibold">Hospital Total</div>
+                  <div className="text-xl font-bold text-[#008F83] mt-1">
                     {data.hospital_distribution.reduce((acc: number, curr: any) => acc + curr.current_stock, 0)}{' '}
-                    <span className="text-xs font-normal text-slate-400">{data.medicine.unit}</span>
+                    <span className="text-xs font-normal text-[#647772]">{data.medicine.unit}</span>
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-1">Across all 5 wards</div>
+                  <div className="text-[10px] text-[#647772] mt-1">Across all 5 wards</div>
                 </div>
               </div>
 
               {/* Usage History Chart */}
-              <div className="bg-[#1c1d25] border border-white/[0.07] rounded-3xl p-5 shadow-md">
+              <div className="bg-white border border-[#D9E8E3] rounded-3xl p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  <h3 className="text-xs font-bold text-[#12332C] uppercase tracking-wider">
                     30-Day Dispensing History ({data.ward.name})
                   </h3>
-                  <span className="text-[11px] text-slate-400">Daily usage logs</span>
+                  <span className="text-[11px] text-[#647772]">Daily usage logs</span>
                 </div>
                 <div className="h-48 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data.usage_history}>
                       <defs>
                         <linearGradient id="usageGradientRef" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#7c5cfc" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#7c5cfc" stopOpacity={0.0} />
+                          <stop offset="5%" stopColor="#008F83" stopOpacity={0.35} />
+                          <stop offset="95%" stopColor="#008F83" stopOpacity={0.0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                      <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 10 }} />
-                      <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#D9E8E3" />
+                      <XAxis dataKey="date" stroke="#647772" tick={{ fontSize: 10 }} />
+                      <YAxis stroke="#647772" tick={{ fontSize: 10 }} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: '#1c1d25', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '14px', fontSize: '11px', color: '#fff' }}
+                        contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#D9E8E3', borderRadius: '14px', fontSize: '11px', color: '#12332C' }}
                       />
-                      <Area type="monotone" dataKey="quantity_used" stroke="#7c5cfc" strokeWidth={2.5} fillOpacity={1} fill="url(#usageGradientRef)" name="Daily Usage" />
+                      <Area type="monotone" dataKey="quantity_used" stroke="#006B4F" strokeWidth={2.5} fillOpacity={1} fill="url(#usageGradientRef)" name="Daily Usage" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
               {/* Batches Table & FEFO Status */}
-              <div className="bg-[#1c1d25] border border-white/[0.07] rounded-3xl p-5 shadow-md">
-                <h3 className="text-xs font-bold text-white mb-3 flex items-center space-x-2 uppercase tracking-wider">
-                  <Package className="w-4 h-4 text-[#9484f7]" />
+              <div className="bg-white border border-[#D9E8E3] rounded-3xl p-5 shadow-sm">
+                <h3 className="text-xs font-bold text-[#12332C] mb-3 flex items-center space-x-2 uppercase tracking-wider">
+                  <Package className="w-4 h-4 text-[#006B4F]" />
                   <span>Ward Batches & Expiry (FEFO Order)</span>
                 </h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="border-b border-white/[0.07] text-slate-400 text-[11px] uppercase tracking-wider">
-                        <th className="pb-3 px-3 font-semibold">Batch #</th>
-                        <th className="pb-3 px-3 font-semibold">Remaining Qty</th>
-                        <th className="pb-3 px-3 font-semibold">Expiry Date</th>
-                        <th className="pb-3 px-3 font-semibold">Days Left</th>
-                        <th className="pb-3 px-3 font-semibold">Status</th>
+                      <tr className="border-b border-[#D9E8E3] text-[#647772] text-[11px] uppercase tracking-wider bg-[#F3FAF7]/50">
+                        <th className="py-2.5 px-3 font-semibold">Batch #</th>
+                        <th className="py-2.5 px-3 font-semibold">Remaining Qty</th>
+                        <th className="py-2.5 px-3 font-semibold">Expiry Date</th>
+                        <th className="py-2.5 px-3 font-semibold">Days Left</th>
+                        <th className="py-2.5 px-3 font-semibold">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/[0.05] text-slate-300">
+                    <tbody className="divide-y divide-[#D9E8E3] text-[#12332C]">
                       {data.batches.map((b: any) => (
-                        <tr key={b.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="py-3 px-3 font-mono text-[#a890fe] font-semibold">{b.batch_number}</td>
-                          <td className="py-3 px-3 font-semibold text-white">{b.current_quantity} {data.medicine.unit}</td>
-                          <td className="py-3 px-3 text-slate-300">{b.expiry_date}</td>
+                        <tr key={b.id} className="hover:bg-[#F3FAF7]/80 transition-colors">
+                          <td className="py-3 px-3 font-mono text-[#006B4F] font-semibold">{b.batch_number}</td>
+                          <td className="py-3 px-3 font-semibold text-[#12332C]">{b.current_quantity} {data.medicine.unit}</td>
+                          <td className="py-3 px-3 text-[#647772] font-mono">{b.expiry_date}</td>
                           <td className="py-3 px-3">
-                            <span className={b.days_to_expiry <= 30 ? 'text-rose-400 font-bold' : b.days_to_expiry <= 90 ? 'text-amber-400 font-semibold' : 'text-slate-300'}>
+                            <span className={b.days_to_expiry <= 30 ? 'text-[#DC2626] font-bold' : b.days_to_expiry <= 90 ? 'text-[#B45309] font-semibold' : 'text-[#12332C]'}>
                               {b.days_to_expiry} days
                             </span>
                           </td>
                           <td className="py-3 px-3">
                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                               b.status === 'NEAR_EXPIRY'
-                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                ? 'bg-[#F59E0B]/15 text-[#B45309] border border-[#F59E0B]/30'
+                                : 'bg-[#16A34A]/15 text-[#16A34A] border border-[#16A34A]/30'
                             }`}>
                               {b.status}
                             </span>
@@ -209,18 +222,18 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
               {/* Cross-Ward Distribution & Qualified Suppliers */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Cross-Ward */}
-                <div className="bg-[#1c1d25] border border-white/[0.07] rounded-3xl p-5 shadow-md">
-                  <h3 className="text-xs font-bold text-white mb-3 uppercase tracking-wider">Hospital Cross-Ward Stock</h3>
+                <div className="bg-white border border-[#D9E8E3] rounded-3xl p-5 shadow-sm">
+                  <h3 className="text-xs font-bold text-[#12332C] mb-3 uppercase tracking-wider">Hospital Cross-Ward Stock</h3>
                   <div className="space-y-2">
                     {data.hospital_distribution.map((d: any) => (
-                      <div key={d.ward_id} className="flex items-center justify-between text-xs py-2 border-b border-white/[0.04]">
-                        <span className="text-slate-300">{d.ward_name}</span>
+                      <div key={d.ward_id} className="flex items-center justify-between text-xs py-2 border-b border-[#D9E8E3]">
+                        <span className="text-[#647772]">{d.ward_name}</span>
                         <div className="flex items-center space-x-2">
-                          <span className="font-semibold text-white">{d.current_stock} {data.medicine.unit}</span>
+                          <span className="font-semibold text-[#12332C]">{d.current_stock} {data.medicine.unit}</span>
                           {d.current_stock > d.max_level ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#7c5cfc]/20 text-[#a890fe] border border-[#7c5cfc]/30 font-semibold">Surplus</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#008F83]/15 text-[#008F83] border border-[#008F83]/30 font-semibold">Surplus</span>
                           ) : d.current_stock <= d.min_level ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold">Low</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#DC2626]/15 text-[#DC2626] border border-[#DC2626]/30 font-semibold">Low</span>
                           ) : null}
                         </div>
                       </div>
@@ -229,21 +242,21 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
                 </div>
 
                 {/* Suppliers */}
-                <div className="bg-[#1c1d25] border border-white/[0.07] rounded-3xl p-5 shadow-md">
-                  <h3 className="text-xs font-bold text-white mb-3 flex items-center space-x-2 uppercase tracking-wider">
-                    <Truck className="w-3.5 h-3.5 text-[#9484f7]" />
+                <div className="bg-white border border-[#D9E8E3] rounded-3xl p-5 shadow-sm">
+                  <h3 className="text-xs font-bold text-[#12332C] mb-3 flex items-center space-x-2 uppercase tracking-wider">
+                    <Truck className="w-3.5 h-3.5 text-[#006B4F]" />
                     <span>Qualified Suppliers</span>
                   </h3>
                   <div className="space-y-2">
                     {data.suppliers.map((s: any) => (
-                      <div key={s.supplier_id} className="flex items-center justify-between text-xs py-2 border-b border-white/[0.04]">
+                      <div key={s.supplier_id} className="flex items-center justify-between text-xs py-2 border-b border-[#D9E8E3]">
                         <div>
-                          <div className="text-slate-200 font-semibold">{s.supplier_name}</div>
-                          <div className="text-[10px] text-slate-400">Lead: {s.lead_time_days}d | Score: {(s.reliability_score * 100).toFixed(0)}%</div>
+                          <div className="text-[#12332C] font-semibold">{s.supplier_name}</div>
+                          <div className="text-[10px] text-[#647772]">Lead: {s.lead_time_days}d | Score: {(s.reliability_score * 100).toFixed(0)}%</div>
                         </div>
                         <div className="text-right">
-                          <div className="font-bold text-white">₹{s.unit_price.toFixed(2)}</div>
-                          <div className="text-[10px] text-slate-400">per unit</div>
+                          <div className="font-bold text-[#006B4F]">₹{s.unit_price.toFixed(2)}</div>
+                          <div className="text-[10px] text-[#647772]">per unit</div>
                         </div>
                       </div>
                     ))}

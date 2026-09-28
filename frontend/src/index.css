@@ -6,11 +6,11 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
   
   body {
-    @apply bg-ref-canvas text-slate-100 font-sans antialiased min-h-screen selection:bg-ref-purple selection:text-white;
+    @apply bg-[#E6F4F0] text-[#12332C] font-sans antialiased min-h-screen selection:bg-[#006B4F] selection:text-white;
   }
 }
 
@@ -23,33 +23,34 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2e303c;
+  background: #D9E8E3;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #7c5cfc;
+  background: #008F83;
 }
 
-/* Card & Depth Utilities matching reference */
+/* Card & Depth Utilities matching hospital healthcare reference */
 .ref-card {
-  background-color: #1c1d25;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background-color: #FFFFFF;
+  border: 1px solid #D9E8E3;
   border-radius: 20px;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 12px -2px rgba(0, 77, 58, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .ref-card-interactive {
-  background-color: #1c1d25;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background-color: #FFFFFF;
+  border: 1px solid #D9E8E3;
   border-radius: 20px;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 12px -2px rgba(0, 77, 58, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ref-card-interactive:hover {
-  background-color: #21222c;
-  border-color: rgba(124, 92, 252, 0.3);
+  background-color: #F8FCFA;
+  border-color: #008F83;
   transform: translateY(-1.5px);
+  box-shadow: 0 6px 20px -4px rgba(0, 77, 58, 0.1);
 }
 
 .ref-pill-btn {

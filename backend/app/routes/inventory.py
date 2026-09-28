@@ -37,6 +37,10 @@ def get_inventory(
     today = date.today()
     cutoff_14d = today - timedelta(days=14)
 
+    # Pre-fetch supplier medicine mappings
+    sm_list = db.query(SupplierMedicine).all()
+    supplier_meds = {sm.medicine_id: sm for sm in sm_list}
+
     results = []
     for item in items:
         med = item.medicine
@@ -49,7 +53,7 @@ def get_inventory(
             DailyUsage.ward_id == ward.id,
             DailyUsage.date >= cutoff_14d
         ).all()
-        daily_avg = float(sum(u.quantity_used for u in usages) / max(len(usages), 1)) if usages else 1.0
+        daily_avg = float(sum(u.quantity_used for u in usages) / max(len(usages), 1)) if usages else (item.avg_daily_usage or 1.0)
 
         days_rem = round(item.current_stock / max(daily_avg, 0.1), 1)
 
@@ -63,14 +67,17 @@ def get_inventory(
         near_exp = near_batch.expiry_date if near_batch else None
         days_to_exp = (near_exp - today).days if near_exp else None
 
+        reorder_pt = item.reorder_point or med.reorder_threshold or 50
+        safety_stk = item.safety_stock or med.safety_stock or 30
+
         # Determine risk and status
-        if days_rem <= 3.0:
+        if days_rem <= 3.0 or item.current_stock < safety_stk:
             risk = RiskLevel.HIGH
             stock_stat = "CRITICAL_LOW"
-        elif days_rem <= 7.0 or item.current_stock <= med.reorder_threshold:
+        elif days_rem <= 7.0 or item.current_stock <= reorder_pt:
             risk = RiskLevel.MEDIUM
             stock_stat = "LOW_STOCK"
-        elif days_rem >= 20.0 and item.current_stock >= med.reorder_threshold * 2:
+        elif days_rem >= 20.0 and item.current_stock >= reorder_pt * 2:
             risk = RiskLevel.LOW
             stock_stat = "SURPLUS"
         else:
@@ -79,6 +86,11 @@ def get_inventory(
 
         if risk_level and risk.value != risk_level:
             continue
+
+        sm = supplier_meds.get(med.id)
+        supplier_name = sm.supplier.name if sm and sm.supplier else None
+        lead_time = sm.lead_time_days if sm else None
+        unit_price = sm.unit_price if sm else med.unit_cost
 
         results.append(InventoryItemResponse(
             id=item.id,
@@ -98,14 +110,20 @@ def get_inventory(
             available_stock=max(0, item.current_stock - item.reserved_stock),
             min_level=item.min_level,
             max_level=item.max_level,
-            safety_stock=med.safety_stock,
+            safety_stock=safety_stk,
+            reorder_point=reorder_pt,
             daily_consumption_avg=round(daily_avg, 1),
             days_remaining=days_rem,
             risk_level=risk,
             stock_status=stock_stat,
             nearest_expiry_date=near_exp,
             days_to_nearest_expiry=days_to_exp,
-            last_restocked_at=item.last_restocked_at
+            last_restocked_at=item.last_restocked_at,
+            data_source=item.data_source or "SYNTHETIC",
+            risk_scenario=item.risk_scenario or "NORMAL",
+            supplier_name=supplier_name,
+            lead_time_days=lead_time,
+            unit_price_inr=unit_price
         ))
 
     return results
@@ -225,6 +243,11 @@ def get_inventory_detail(id: int, db: Session = Depends(get_db)):
         "current_stock": item.current_stock,
         "min_level": item.min_level,
         "max_level": item.max_level,
+        "safety_stock": item.safety_stock or med.safety_stock,
+        "reorder_point": item.reorder_point or med.reorder_threshold,
+        "days_of_stock": item.days_of_stock or 0.0,
+        "data_source": item.data_source or "SYNTHETIC",
+        "risk_scenario": item.risk_scenario or "NORMAL",
         "batches": batch_list,
         "usage_history": usage_history,
         "usage_source": usage_source,

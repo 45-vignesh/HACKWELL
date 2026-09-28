@@ -54,17 +54,20 @@ class MonitorAgent:
                 DailyUsage.ward_id == ward_id,
                 DailyUsage.date >= recent_cutoff
             ).all()
-            daily_avg = float(sum(u.quantity_used for u in usages) / max(len(usages), 1)) if usages else 1.0
+            daily_avg = float(sum(u.quantity_used for u in usages) / max(len(usages), 1)) if usages else (inv.avg_daily_usage or 1.0)
 
         daily_avg = max(0.5, daily_avg)
         days_rem = round(inv.current_stock / max(daily_avg, 0.1), 1)
 
+        safety_stock = inv.safety_stock or med.safety_stock or 30
+        reorder_point = inv.reorder_point or med.reorder_threshold or 50
+
         # Status categorization
-        if days_rem <= settings.CRITICAL_STOCKOUT_DAYS_THRESHOLD:
+        if days_rem <= settings.CRITICAL_STOCKOUT_DAYS_THRESHOLD or inv.current_stock < safety_stock:
             status = "CRITICAL_LOW"
-        elif days_rem <= settings.WARNING_STOCKOUT_DAYS_THRESHOLD or inv.current_stock <= med.reorder_threshold:
+        elif days_rem <= settings.WARNING_STOCKOUT_DAYS_THRESHOLD or inv.current_stock <= reorder_point:
             status = "LOW_STOCK"
-        elif days_rem >= 20.0 and inv.current_stock >= med.reorder_threshold * 2:
+        elif days_rem >= 20.0 and inv.current_stock >= reorder_point * 2:
             status = "SURPLUS"
         else:
             status = "NORMAL"
@@ -76,8 +79,8 @@ class MonitorAgent:
             criticality=med.criticality.value,
             unit=med.unit,
             unit_cost=med.unit_cost,
-            safety_stock=med.safety_stock,
-            reorder_threshold=med.reorder_threshold,
+            safety_stock=safety_stock,
+            reorder_threshold=reorder_point,
             ward_id=ward.id,
             ward_name=ward.name,
             current_stock=inv.current_stock,
