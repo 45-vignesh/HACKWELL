@@ -411,26 +411,50 @@ class DataAuditTrailResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class BillItemInput(BaseModel):
-    medicine_id: int
+    medicine_id: Optional[int] = None
+    inventory_id: Optional[int] = None
+    ward_id: Optional[int] = None
     quantity: int
+    days_supply: Optional[int] = None
 
 class BillCreateRequest(BaseModel):
     ward_id: Optional[int] = None
+    patient_id: Optional[int] = None
     patient_name: Optional[str] = None
+    patient_phone: Optional[str] = None
     notes: Optional[str] = None
+    notification_consent: bool = True
     items: List[BillItemInput]
 
 class BillItemDetailResponse(BaseModel):
     id: int
     medicine_id: int
+    inventory_id: Optional[int] = None
+    ward_id: Optional[int] = None
+    ward_name: Optional[str] = None
     medicine_name: str
     medicine_code: str
     quantity: int
+    days_supply: Optional[int] = None
     unit_price: float
     total_price: float
     previous_stock: Optional[int] = None
     updated_stock: Optional[int] = None
     batch_deductions: Optional[List[Dict[str, Any]]] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class SMSNotificationDetail(BaseModel):
+    id: Optional[int] = None
+    status: str
+    masked_phone: Optional[str] = None
+    provider: Optional[str] = None
+    provider_message_id: Optional[str] = None
+    message: Optional[str] = None
+    status_message: Optional[str] = None
+    failure_reason: Optional[str] = None
+    created_at: Optional[datetime] = None
+    sent_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 class BillResponse(BaseModel):
@@ -445,9 +469,14 @@ class BillResponse(BaseModel):
     status: str
     subtotal: float
     total_amount: float
+    patient_id: Optional[int] = None
     patient_name: Optional[str] = None
+    patient_phone: Optional[str] = None
+    notification_consent: Optional[bool] = True
+    sms_notification: Optional[SMSNotificationDetail] = None
     notes: Optional[str] = None
     created_at: datetime
+    refill_reminders_count: Optional[int] = 0
     items: List[BillItemDetailResponse] = []
     model_config = ConfigDict(from_attributes=True)
 
@@ -457,5 +486,110 @@ class BillCancelResponse(BaseModel):
     bill_number: str
     status: str
     reversed_items: List[Dict[str, Any]] = []
+
+# Patient Refill Reminder Schemas
+class PatientCreate(BaseModel):
+    patient_id: Optional[str] = None
+    full_name: str
+    mobile_number: str
+    email: Optional[str] = None
+    notification_consent: bool = True
+
+class PatientResponse(BaseModel):
+    id: int
+    patient_id: str
+    full_name: str
+    mobile_number: str
+    email: Optional[str] = None
+    notification_consent: bool
+    company_id: Optional[int] = None
+    branch_id: Optional[int] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class NotificationLogResponse(BaseModel):
+    id: int
+    reminder_id: Optional[int] = None
+    bill_id: Optional[int] = None
+    patient_id: Optional[int] = None
+    channel: str
+    recipient: str
+    masked_phone_number: Optional[str] = None
+    message: str
+    provider: Optional[str] = None
+    provider_message_id: Optional[str] = None
+    status: str
+    created_at: Optional[datetime] = None
+    sent_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    failure_reason: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class MedicationReminderResponse(BaseModel):
+    id: int
+    patient_id: int
+    patient_name: str
+    patient_code: str
+    mobile_number: str
+    notification_consent: bool
+    bill_id: int
+    bill_number: str
+    bill_item_id: Optional[int] = None
+    medicine_id: int
+    medicine_name: str
+    quantity: int
+    days_supply: int
+    bill_date: datetime
+    estimated_finish_date: date
+    reminder_date: date
+    status: str
+    notification_message: Optional[str] = None
+    channel: str = "SMS"
+    created_at: datetime
+    notification_logs: List[NotificationLogResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+class ReminderProcessResult(BaseModel):
+    target_date: str
+    total_checked: int
+    sent_count: int
+    opted_out_count: int
+    failed_count: int
+    already_processed_count: int
+    details: List[Dict[str, Any]] = []
+
+class SMSGatewayConfig(BaseModel):
+    active_provider: str
+    has_twilio: bool
+    twilio_from: Optional[str] = None
+    has_fast2sms: bool
+    has_custom_gateway: bool
+    gateway_url: Optional[str] = None
+    default_channel: str = "SMS"
+    supported_providers: List[str] = []
+
+class SMSGatewayUpdate(BaseModel):
+    twilio_sid: Optional[str] = None
+    twilio_auth: Optional[str] = None
+    twilio_from: Optional[str] = None
+    fast2sms_key: Optional[str] = None
+    gateway_url: Optional[str] = None
+    provider: Optional[str] = None
+
+class SMSDeliveryWebhookPayload(BaseModel):
+    provider_message_id: Optional[str] = None
+    message_sid: Optional[str] = None
+    MessageSid: Optional[str] = None
+    status: Optional[str] = None
+    MessageStatus: Optional[str] = None
+    error_message: Optional[str] = None
+    delivered_at: Optional[datetime] = None
+
+class SMSDeliveryWebhookResponse(BaseModel):
+    status: str
+    message: str
+    updated_records: int = 0
+
+
 
 

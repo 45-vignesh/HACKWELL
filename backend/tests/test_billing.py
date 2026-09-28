@@ -437,3 +437,102 @@ def test_12_cancelled_bill_reverses_stock_exactly_once(auth_headers):
         assert inv_check.current_stock == stock_before_bill
     finally:
         db.close()
+
+
+def test_13_billing_with_explicit_inventory_id_reduces_exact_inventory_record(auth_headers):
+    """13. Explicit inventory_id targets and reduces the exact inventory row in PostgreSQL."""
+    db = SessionLocal()
+    try:
+        # Pick an inventory record in Ward 3 or 4 with stock
+        target_inv = db.query(Inventory).filter(Inventory.ward_id >= 2, Inventory.current_stock >= 10).first()
+        assert target_inv is not None
+        target_inv_id = target_inv.id
+        med_id = target_inv.medicine_id
+        target_ward_id = target_inv.ward_id
+        initial_stock = target_inv.current_stock
+
+        # Also find another inventory record for the SAME medicine in another ward to ensure it is untouched
+        other_inv = db.query(Inventory).filter(
+            Inventory.medicine_id == med_id,
+            Inventory.id != target_inv_id
+        ).first()
+        other_inv_id = other_inv.id if other_inv else None
+        other_initial_stock = other_inv.current_stock if other_inv else None
+    finally:
+        db.close()
+
+    bill_qty = 3
+    res = client.post(
+        "/api/billing/bills",
+        headers=auth_headers["pharmacist"],
+        json={
+            "ward_id": target_ward_id,
+            "patient_name": "Target Ward Patient",
+            "items": [{"inventory_id": target_inv_id, "medicine_id": med_id, "quantity": bill_qty}]
+        }
+    )
+    assert res.status_code == 201, res.text
+    data = res.json()
+    assert data["status"] == "SUCCESS"
+    assert data["items"][0]["inventory_id"] == target_inv_id
+    assert data["items"][0]["previous_stock"] == initial_stock
+    assert data["items"][0]["updated_stock"] == initial_stock - bill_qty
+
+    # Verify directly in PostgreSQL: targeted inventory is reduced
+    db = SessionLocal()
+    try:
+        inv_after = db.query(Inventory).filter(Inventory.id == target_inv_id).first()
+        assert inv_after.current_stock == initial_stock - bill_qty
+
+        # Verify other ward inventory for same medicine remained UNTOUCHED
+        if other_inv_id is not None:
+            other_after = db.query(Inventory).filter(Inventory.id == other_inv_id).first()
+            assert other_after.current_stock == other_initial_stock
+    finally:
+        db.close()
+
+
+def test_14_billing_and_cancel_with_inventory_id_restores_exact_record(auth_headers):
+    """14. Cancelling a bill created with inventory_id restores stock to that exact record."""
+    db = SessionLocal()
+    try:
+        target_inv = db.query(Inventory).filter(Inventory.current_stock >= 10).first()
+        target_inv_id = target_inv.id
+        initial_stock = target_inv.current_stock
+    finally:
+        db.close()
+
+    bill_qty = 2
+    res = client.post(
+        "/api/billing/bills",
+        headers=auth_headers["pharmacist"],
+        json={
+            "items": [{"inventory_id": target_inv_id, "quantity": bill_qty}]
+        }
+    )
+    assert res.status_code == 201
+    bill_id = res.json()["id"]
+
+    # Verify reduced
+    db = SessionLocal()
+    try:
+        inv_reduced = db.query(Inventory).filter(Inventory.id == target_inv_id).first()
+        assert inv_reduced.current_stock == initial_stock - bill_qty
+    finally:
+        db.close()
+
+    # Cancel
+    cancel_res = client.post(
+        f"/api/billing/bills/{bill_id}/cancel",
+        headers=auth_headers["pharmacist"]
+    )
+    assert cancel_res.status_code == 200
+
+    # Verify restored exactly
+    db = SessionLocal()
+    try:
+        inv_restored = db.query(Inventory).filter(Inventory.id == target_inv_id).first()
+        assert inv_restored.current_stock == initial_stock
+    finally:
+        db.close()
+

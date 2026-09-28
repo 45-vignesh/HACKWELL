@@ -15,9 +15,17 @@ import {
   ShieldCheck,
   Clock,
   Check,
-  X
+  X,
+  Bell,
+  UserCheck,
+  UserX,
+  Calendar,
+  Phone,
+  MessageSquare,
+  Send,
+  CheckCheck
 } from 'lucide-react';
-import { InventoryItem, Bill, BillCreatePayload } from '../types';
+import { InventoryItem, Bill, BillCreatePayload, Patient } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,13 +34,17 @@ interface BillingPageProps {
 }
 
 interface CartItem {
+  inventory_id: number;
   medicine_id: number;
+  ward_id: number;
+  ward_name?: string;
   medicine_name: string;
   medicine_code: string;
   category: string;
   unit_price: number;
   available_stock: number;
   quantity: number;
+  days_supply: number;
 }
 
 export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
@@ -41,6 +53,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
   // State
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [recentBills, setRecentBills] = useState<Bill[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
@@ -48,9 +61,13 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
   // Cart & Form State
   const [selectedWardId, setSelectedWardId] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMedId, setSelectedMedId] = useState<number | ''>('');
+  const [selectedInvId, setSelectedInvId] = useState<number | ''>('');
   const [inputQty, setInputQty] = useState<number>(1);
+  const [inputDaysSupply, setInputDaysSupply] = useState<number>(30);
+  const [selectedPatientId, setSelectedPatientId] = useState<number | ''>('');
   const [patientName, setPatientName] = useState('');
+  const [patientPhone, setPatientPhone] = useState('');
+  const [notificationConsent, setNotificationConsent] = useState<boolean>(true);
   const [notes, setNotes] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
 
@@ -59,18 +76,21 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [lastCompletedBill, setLastCompletedBill] = useState<Bill | null>(null);
   const [cancelTargetBill, setCancelTargetBill] = useState<Bill | null>(null);
+  const [simulatingLogId, setSimulatingLogId] = useState<number | null>(null);
 
-  // Fetch Inventory and Recent Bills
+  // Fetch Inventory, Recent Bills, and Patients
   const loadData = async () => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const [invData, billsData] = await Promise.all([
+      const [invData, billsData, ptsData] = await Promise.all([
         api.getInventory(),
-        api.getBills()
+        api.getBills(),
+        api.getPatients().catch(() => [])
       ]);
       setInventoryList(invData);
       setRecentBills(billsData);
+      setPatients(ptsData);
     } catch (err: any) {
       console.error('Failed to load billing data:', err);
       setErrorMessage(err.response?.data?.detail || 'Failed to load inventory for billing.');
@@ -96,7 +116,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
 
   // Selected medicine details for current selection
   const currentSelectedMed = inventoryList.find(
-    (item) => item.ward_id === selectedWardId && item.medicine_id === Number(selectedMedId)
+    (item) => item.id === Number(selectedInvId)
   );
 
   // Cart calculation
@@ -116,8 +136,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
       return;
     }
 
-    // Check existing cart quantity for this medicine
-    const existingIndex = cart.findIndex((i) => i.medicine_id === currentSelectedMed.medicine_id);
+    // Check existing cart quantity for this medicine inventory
+    const existingIndex = cart.findIndex((i) => i.inventory_id === currentSelectedMed.id);
     const existingQty = existingIndex >= 0 ? cart[existingIndex].quantity : 0;
     const requestedTotal = existingQty + inputQty;
 
@@ -131,38 +151,71 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
     if (existingIndex >= 0) {
       const updated = [...cart];
       updated[existingIndex].quantity += inputQty;
+      updated[existingIndex].days_supply = inputDaysSupply;
       setCart(updated);
     } else {
       setCart([
         ...cart,
         {
+          inventory_id: currentSelectedMed.id,
           medicine_id: currentSelectedMed.medicine_id,
+          ward_id: currentSelectedMed.ward_id,
+          ward_name: currentSelectedMed.ward_name,
           medicine_name: currentSelectedMed.medicine_name,
           medicine_code: currentSelectedMed.medicine_code,
           category: currentSelectedMed.category,
           unit_price: currentSelectedMed.unit_cost || 10.0,
           available_stock: currentSelectedMed.current_stock,
-          quantity: inputQty
+          quantity: inputQty,
+          days_supply: inputDaysSupply
         }
       ]);
     }
 
-    setSelectedMedId('');
+    setSelectedInvId('');
     setInputQty(1);
+    setInputDaysSupply(30);
     setSearchQuery('');
   };
 
   // Remove item from cart
-  const handleRemoveItem = (medId: number) => {
-    setCart(cart.filter((item) => item.medicine_id !== medId));
+  const handleRemoveItem = (invId: number) => {
+    setCart(cart.filter((item) => item.inventory_id !== invId));
   };
 
   // Clear cart
   const handleClearCart = () => {
     setCart([]);
+    setSelectedPatientId('');
     setPatientName('');
+    setPatientPhone('');
+    setNotificationConsent(true);
     setNotes('');
     setErrorMessage(null);
+  };
+
+  // Simulate SMS Delivery Receipt (Carrier DLR Webhook simulation)
+  const handleSimulateDelivery = async (logId: number) => {
+    setSimulatingLogId(logId);
+    try {
+      const res = await api.simulateSMSDelivery(logId);
+      if (lastCompletedBill && lastCompletedBill.sms_notification) {
+        setLastCompletedBill({
+          ...lastCompletedBill,
+          sms_notification: {
+            ...lastCompletedBill.sms_notification,
+            status: 'DELIVERED',
+            delivered_at: res.delivered_at,
+            status_message: `Delivered via ${res.provider || 'Carrier Gateway'}`
+          }
+        });
+      }
+      await loadData();
+    } catch (err: any) {
+      console.error('Failed to simulate delivery receipt:', err);
+    } finally {
+      setSimulatingLogId(null);
+    }
   };
 
   // Submit Bill
@@ -175,11 +228,17 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
     try {
       const payload: BillCreatePayload = {
         ward_id: selectedWardId,
+        patient_id: selectedPatientId ? Number(selectedPatientId) : undefined,
         patient_name: patientName.trim() || undefined,
+        patient_phone: patientPhone.trim() || undefined,
+        notification_consent: notificationConsent,
         notes: notes.trim() || undefined,
         items: cart.map((c) => ({
+          inventory_id: c.inventory_id,
           medicine_id: c.medicine_id,
-          quantity: c.quantity
+          ward_id: c.ward_id,
+          quantity: c.quantity,
+          days_supply: c.days_supply || 30
         }))
       };
 
@@ -253,7 +312,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
               onChange={(e) => {
                 setSelectedWardId(Number(e.target.value));
                 setCart([]);
-                setSelectedMedId('');
+                setSelectedInvId('');
               }}
               className="text-xs font-bold text-[#006B4F] bg-transparent outline-none cursor-pointer"
             >
@@ -298,7 +357,14 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
                 </h3>
                 <p className="text-xs text-emerald-700 font-mono">
                   Bill #{lastCompletedBill.bill_number} • Total: ₹{lastCompletedBill.total_amount.toFixed(2)} • Dispensed by {lastCompletedBill.created_by}
+                  {lastCompletedBill.patient_phone && ` • Phone: ${lastCompletedBill.patient_phone}`}
                 </p>
+                {Boolean(lastCompletedBill.refill_reminders_count && lastCompletedBill.refill_reminders_count > 0) && (
+                  <div className="mt-1.5 inline-flex items-center space-x-1.5 text-xs font-semibold text-emerald-900 bg-white/70 px-2.5 py-1 rounded-xl border border-emerald-300">
+                    <Bell className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>{lastCompletedBill.refill_reminders_count} Patient Refill Reminder(s) Scheduled (~7 days before supply ends)</span>
+                  </div>
+                )}
               </div>
             </div>
             <button
@@ -317,9 +383,16 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
                 className="bg-white/90 border border-emerald-200 rounded-2xl p-3 shadow-xs space-y-1.5"
               >
                 <div className="flex justify-between items-start">
-                  <span className="text-xs font-bold text-[#12332C] truncate max-w-[170px]">
-                    {item.medicine_name}
-                  </span>
+                  <div>
+                    <span className="text-xs font-bold text-[#12332C] truncate max-w-[170px] block">
+                      {item.medicine_name}
+                    </span>
+                    {item.ward_name && (
+                      <span className="text-[10px] text-gray-500 font-medium">
+                        {item.ward_name}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
                     Billed: {item.quantity}
                   </span>
@@ -335,6 +408,110 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
               </div>
             ))}
           </div>
+
+          {/* Autonomous Patient SMS Notification Delivery Status */}
+          {lastCompletedBill.sms_notification ? (
+            <div className="bg-white/95 border-2 border-emerald-300 rounded-2xl p-4 space-y-3 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-100 pb-2.5">
+                <div className="flex items-center space-x-2.5">
+                  <div className={`w-7 h-7 rounded-xl flex items-center justify-center ${
+                    lastCompletedBill.sms_notification.status === 'DELIVERED'
+                      ? 'bg-emerald-500 text-white'
+                      : lastCompletedBill.sms_notification.status === 'SENT'
+                      ? 'bg-blue-500 text-white'
+                      : lastCompletedBill.sms_notification.status === 'QUEUED'
+                      ? 'bg-amber-500 text-white'
+                      : lastCompletedBill.sms_notification.status === 'OPTED_OUT'
+                      ? 'bg-purple-500 text-white'
+                      : lastCompletedBill.sms_notification.status === 'NOT_CONFIGURED'
+                      ? 'bg-gray-400 text-white'
+                      : 'bg-rose-500 text-white'
+                  }`}>
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-[#12332C]">
+                      Autonomous Patient SMS Notification
+                    </h4>
+                    <p className="text-[11px] text-gray-500 font-mono">
+                      Recipient: <span className="font-semibold text-gray-800">{lastCompletedBill.sms_notification.masked_phone || 'N/A'}</span>
+                      {lastCompletedBill.sms_notification.provider && (
+                        <span> • Gateway: {lastCompletedBill.sms_notification.provider}</span>
+                      )}
+                      {lastCompletedBill.sms_notification.provider_message_id && (
+                        <span> • Ref: <span className="font-bold text-[#006B4F]">{lastCompletedBill.sms_notification.provider_message_id}</span></span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <span className={`inline-flex items-center space-x-1.5 text-xs font-bold px-3 py-1 rounded-full ${
+                    lastCompletedBill.sms_notification.status === 'DELIVERED'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : lastCompletedBill.sms_notification.status === 'SENT'
+                      ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                      : lastCompletedBill.sms_notification.status === 'QUEUED'
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                      : lastCompletedBill.sms_notification.status === 'OPTED_OUT'
+                      ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                      : lastCompletedBill.sms_notification.status === 'NOT_CONFIGURED'
+                      ? 'bg-gray-100 text-gray-700 border border-gray-300'
+                      : 'bg-rose-100 text-rose-800 border border-rose-300'
+                  }`}>
+                    {lastCompletedBill.sms_notification.status === 'DELIVERED' ? (
+                      <CheckCheck className="w-3.5 h-3.5" />
+                    ) : lastCompletedBill.sms_notification.status === 'SENT' ? (
+                      <Send className="w-3.5 h-3.5" />
+                    ) : lastCompletedBill.sms_notification.status === 'QUEUED' ? (
+                      <Clock className="w-3.5 h-3.5" />
+                    ) : (
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                    )}
+                    <span>{lastCompletedBill.sms_notification.status}</span>
+                  </span>
+
+                  {(lastCompletedBill.sms_notification.status === 'QUEUED' || lastCompletedBill.sms_notification.status === 'SENT') && lastCompletedBill.sms_notification.id && (
+                    <button
+                      onClick={() => handleSimulateDelivery(lastCompletedBill.sms_notification!.id!)}
+                      disabled={simulatingLogId === lastCompletedBill.sms_notification.id}
+                      className="px-2.5 py-1 text-[11px] font-semibold text-[#006B4F] bg-[#006B4F]/10 hover:bg-[#006B4F]/20 rounded-xl transition-colors border border-[#006B4F]/20 flex items-center space-x-1"
+                    >
+                      <CheckCheck className="w-3 h-3" />
+                      <span>{simulatingLogId === lastCompletedBill.sms_notification.id ? 'Confirming...' : 'Receive Carrier DLR'}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {lastCompletedBill.sms_notification.message && (
+                <div className="bg-gray-50/90 border border-gray-200 rounded-xl p-2.5 text-xs text-gray-700 font-mono flex items-start space-x-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase shrink-0 mt-0.5">Dispatched:</span>
+                  <p className="text-[11px] leading-relaxed italic">
+                    "{lastCompletedBill.sms_notification.message}"
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1">
+                <span>
+                  Status Detail: <strong className="text-gray-700">{lastCompletedBill.sms_notification.status_message || lastCompletedBill.sms_notification.status}</strong>
+                </span>
+                {lastCompletedBill.sms_notification.delivered_at && (
+                  <span className="text-emerald-700 font-semibold">
+                    Delivered: {new Date(lastCompletedBill.sms_notification.delivered_at).toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white/80 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between text-xs text-gray-600">
+              <div className="flex items-center space-x-2">
+                <MessageSquare className="w-4 h-4 text-gray-400" />
+                <span>SMS Notification: No mobile number provided for walk-in patient.</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -373,9 +550,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
             <div className="space-y-2">
               <label className="text-xs font-semibold text-[#12332C]/80">Choose Medicine</label>
               <select
-                value={selectedMedId}
+                value={selectedInvId}
                 onChange={(e) => {
-                  setSelectedMedId(e.target.value ? Number(e.target.value) : '');
+                  setSelectedInvId(e.target.value ? Number(e.target.value) : '');
                   setInputQty(1);
                   setErrorMessage(null);
                 }}
@@ -383,7 +560,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
               >
                 <option value="">-- Choose a medicine from operational stock --</option>
                 {availableInventory.map((item) => (
-                  <option key={item.id} value={item.medicine_id}>
+                  <option key={item.id} value={item.id}>
                     {item.medicine_name} ({item.medicine_code}) — Stock: {item.current_stock} {item.unit} | ₹{(item.unit_cost || 10).toFixed(2)}
                   </option>
                 ))}
@@ -410,31 +587,50 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
                   </div>
                 </div>
 
-                {/* Quantity and Add Button */}
-                <div className="flex items-center space-x-4 pt-2">
-                  <div className="flex-1">
+                {/* Quantity, Days Supply, and Add Button */}
+                <div className="flex flex-wrap items-end gap-3 pt-2">
+                  <div className="w-28">
                     <label className="text-[11px] font-semibold text-[#12332C]/70 block mb-1">
-                      Dispense Quantity
+                      Dispense Qty
                     </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="number"
-                        min="1"
-                        max={currentSelectedMed.current_stock}
-                        value={inputQty}
-                        onChange={(e) => setInputQty(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-24 bg-white border border-[#D9E8E3] rounded-xl px-3 py-2 text-xs font-bold text-center text-[#12332C] focus:outline-none focus:ring-2 focus:ring-[#006B4F]"
-                      />
-                      <span className="text-xs text-[#12332C]/60">
-                        Line Total: <strong className="text-[#006B4F] font-mono">₹{((currentSelectedMed.unit_cost || 10) * inputQty).toFixed(2)}</strong>
-                      </span>
-                    </div>
+                    <input
+                      type="number"
+                      min="1"
+                      max={currentSelectedMed.current_stock}
+                      value={inputQty}
+                      onChange={(e) => setInputQty(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full bg-white border border-[#D9E8E3] rounded-xl px-3 py-2 text-xs font-bold text-center text-[#12332C] focus:outline-none focus:ring-2 focus:ring-[#006B4F]"
+                    />
+                  </div>
+
+                  <div className="w-32">
+                    <label className="text-[11px] font-semibold text-[#12332C]/70 block mb-1">
+                      Days Supply
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={inputDaysSupply}
+                      onChange={(e) => setInputDaysSupply(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full bg-white border border-[#D9E8E3] rounded-xl px-3 py-2 text-xs font-bold text-center text-[#12332C] focus:outline-none focus:ring-2 focus:ring-[#006B4F]"
+                      title="Estimated days the medicine will last the patient"
+                    />
+                  </div>
+
+                  <div className="flex-1 pb-1">
+                    <span className="text-xs text-[#12332C]/60 block">
+                      Line Total: <strong className="text-[#006B4F] font-mono">₹{((currentSelectedMed.unit_cost || 10) * inputQty).toFixed(2)}</strong>
+                    </span>
+                    <span className="text-[10px] text-gray-500">
+                      Refill alert ~7 days prior to day {inputDaysSupply}
+                    </span>
                   </div>
 
                   <button
                     onClick={handleAddToCart}
                     disabled={currentSelectedMed.current_stock < 1}
-                    className="mt-4 px-4 py-2 bg-[#006B4F] hover:bg-[#00523C] text-white text-xs font-semibold rounded-2xl flex items-center space-x-2 shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-[#006B4F] hover:bg-[#00523C] text-white text-xs font-semibold rounded-2xl flex items-center space-x-2 shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add to Bill</span>
@@ -446,10 +642,71 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
 
           {/* Patient Details & Clinical Prescription Metadata */}
           <div className="bg-white/85 backdrop-blur-md border border-[#D9E8E3] rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center space-x-2 pb-2 border-b border-[#D9E8E3]">
-              <User className="w-4 h-4 text-[#006B4F]" />
-              <h2 className="text-sm font-bold text-[#12332C]">Patient & Prescription Details (Optional)</h2>
+            <div className="flex items-center justify-between pb-2 border-b border-[#D9E8E3]">
+              <div className="flex items-center space-x-2">
+                <User className="w-4 h-4 text-[#006B4F]" />
+                <h2 className="text-sm font-bold text-[#12332C]">Patient & Prescription Details</h2>
+              </div>
+              <span className="text-[10px] text-[#006B4F] bg-[#006B4F]/10 px-2 py-0.5 rounded-full font-medium flex items-center space-x-1">
+                <Bell className="w-3 h-3" />
+                <span>Refill Reminders Supported</span>
+              </span>
             </div>
+
+            {/* Registered Patient Dropdown */}
+            <div>
+              <label className="text-xs font-semibold text-[#12332C]/80 block mb-1">
+                Select Registered Hospital Patient (Automated SMS Refill Alerts)
+              </label>
+              <select
+                value={selectedPatientId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedPatientId(val ? Number(val) : '');
+                  if (val) {
+                    const pt = patients.find((p) => p.id === Number(val));
+                    if (pt) {
+                      setPatientName(pt.full_name);
+                      setPatientPhone(pt.mobile_number);
+                      setNotificationConsent(pt.notification_consent !== false);
+                    }
+                  }
+                }}
+                className="w-full bg-[#F3FAF7] border border-[#D9E8E3] rounded-2xl px-3.5 py-2 text-xs text-[#12332C] focus:outline-none focus:ring-2 focus:ring-[#006B4F] cursor-pointer"
+              >
+                <option value="">-- Walk-in Outpatient / Custom Name --</option>
+                {patients.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name} ({p.patient_id}) — {p.mobile_number} [{p.notification_consent ? 'Consent Active' : 'Consent Opt-Out'}]
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Selected Patient Consent Badge */}
+            {selectedPatientId && (() => {
+              const pt = patients.find((p) => p.id === Number(selectedPatientId));
+              if (!pt) return null;
+              return (
+                <div className="p-2.5 rounded-2xl bg-[#F3FAF7] border border-[#D9E8E3] flex items-center justify-between text-xs">
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-[#12332C]">{pt.full_name}</span>
+                    <span className="text-gray-500 ml-2 font-mono text-[11px]">{pt.patient_id} • {patientPhone || pt.mobile_number}</span>
+                  </div>
+                  {notificationConsent ? (
+                    <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                      <UserCheck className="w-3 h-3" />
+                      <span>SMS Alerts Enabled</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">
+                      <UserX className="w-3 h-3" />
+                      <span>SMS Alerts Opted Out</span>
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -466,17 +723,54 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#12332C]/80 block mb-1">
-                  Notes / Doctor Ref
+                <label className="text-xs font-semibold text-[#12332C]/80 block mb-1 flex items-center justify-between">
+                  <span className="flex items-center space-x-1">
+                    <Phone className="w-3 h-3 text-[#006B4F]" />
+                    <span>Patient Phone Number</span>
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-normal">Autonomous SMS Alerts</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Outpatient Emergency Dispense"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full bg-[#F3FAF7] border border-[#D9E8E3] rounded-2xl px-3.5 py-2 text-xs text-[#12332C] focus:outline-none focus:ring-2 focus:ring-[#006B4F]"
+                  placeholder="e.g. +91 98401 99887"
+                  value={patientPhone}
+                  onChange={(e) => setPatientPhone(e.target.value)}
+                  className="w-full bg-[#F3FAF7] border border-[#D9E8E3] rounded-2xl px-3.5 py-2 text-xs text-[#12332C] focus:outline-none focus:ring-2 focus:ring-[#006B4F] font-mono"
                 />
               </div>
+            </div>
+
+            {/* Autonomous SMS Notification Consent Toggle */}
+            <div className="bg-[#F3FAF7] border border-[#D9E8E3] rounded-2xl p-3 flex items-center justify-between text-xs">
+              <label className="flex items-center space-x-2.5 cursor-pointer text-[#12332C]">
+                <input
+                  type="checkbox"
+                  checked={notificationConsent}
+                  onChange={(e) => setNotificationConsent(e.target.checked)}
+                  className="rounded border-gray-300 text-[#006B4F] focus:ring-[#006B4F] w-4 h-4 cursor-pointer"
+                />
+                <span className="font-semibold text-xs text-[#12332C]">
+                  Patient has consented to autonomous SMS notifications
+                </span>
+              </label>
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                notificationConsent ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-700'
+              }`}>
+                {notificationConsent ? 'SMS Consent Active' : 'SMS Opted Out'}
+              </span>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#12332C]/80 block mb-1">
+                Notes / Doctor Ref
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Outpatient Emergency Dispense"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full bg-[#F3FAF7] border border-[#D9E8E3] rounded-2xl px-3.5 py-2 text-xs text-[#12332C] focus:outline-none focus:ring-2 focus:ring-[#006B4F]"
+              />
             </div>
           </div>
         </div>
@@ -515,12 +809,14 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
               ) : (
                 <div className="divide-y divide-gray-100 max-h-[280px] overflow-y-auto mt-2 pr-1">
                   {cart.map((item) => (
-                    <div key={item.medicine_id} className="py-3 flex items-center justify-between">
-                      <div className="space-y-0.5 max-w-[180px]">
+                    <div key={item.inventory_id} className="py-3 flex items-center justify-between">
+                      <div className="space-y-0.5 max-w-[190px]">
                         <h4 className="text-xs font-bold text-[#12332C] truncate">{item.medicine_name}</h4>
-                        <p className="text-[10px] text-gray-500 font-mono">
-                          ₹{item.unit_price.toFixed(2)} × {item.quantity} units
-                        </p>
+                        <div className="flex items-center space-x-1.5 text-[10px] text-gray-500 font-mono">
+                          <span>₹{item.unit_price.toFixed(2)} × {item.quantity}u</span>
+                          <span>•</span>
+                          <span className="text-[#006B4F] font-semibold">{item.days_supply}d supply</span>
+                        </div>
                       </div>
 
                       <div className="flex items-center space-x-3">
@@ -528,7 +824,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
                           ₹{(item.unit_price * item.quantity).toFixed(2)}
                         </span>
                         <button
-                          onClick={() => handleRemoveItem(item.medicine_id)}
+                          onClick={() => handleRemoveItem(item.inventory_id)}
                           className="text-gray-400 hover:text-rose-600 transition-colors p-1"
                           title="Remove item"
                         >
@@ -623,7 +919,46 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
                       {b.ward_name || `Ward ${b.ward_id}`}
                     </td>
                     <td className="py-3 px-3 text-gray-700">
-                      {b.patient_name || <span className="text-gray-400 italic">Outpatient</span>}
+                      <div className="space-y-0.5">
+                        <div className="font-medium">{b.patient_name || <span className="text-gray-400 italic">Outpatient</span>}</div>
+                        {b.patient_phone && (
+                          <div className="text-[10px] text-gray-500 font-mono flex items-center space-x-1">
+                            <Phone className="w-2.5 h-2.5 text-[#006B4F]" />
+                            <span>{b.patient_phone}</span>
+                          </div>
+                        )}
+                        {b.sms_notification && (
+                          <div className="pt-0.5">
+                            <span className={`inline-flex items-center space-x-1 text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                              b.sms_notification.status === 'DELIVERED'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : b.sms_notification.status === 'SENT'
+                                ? 'bg-blue-100 text-blue-800'
+                                : b.sms_notification.status === 'QUEUED'
+                                ? 'bg-amber-100 text-amber-800'
+                                : b.sms_notification.status === 'OPTED_OUT'
+                                ? 'bg-purple-100 text-purple-800'
+                                : b.sms_notification.status === 'NOT_CONFIGURED'
+                                ? 'bg-gray-100 text-gray-700'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              <MessageSquare className="w-2.5 h-2.5" />
+                              <span>SMS: {b.sms_notification.status}</span>
+                            </span>
+                            {b.sms_notification.masked_phone && (
+                              <span className="text-[9px] text-gray-500 font-mono ml-1">
+                                {b.sms_notification.masked_phone}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {Boolean(b.refill_reminders_count && b.refill_reminders_count > 0) && (
+                          <span className="inline-flex items-center space-x-1 text-[10px] text-[#006B4F] bg-[#006B4F]/10 px-1.5 py-0.5 rounded font-medium">
+                            <Bell className="w-2.5 h-2.5" />
+                            <span>{b.refill_reminders_count} refill alert(s)</span>
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-3">
                       <div className="space-y-0.5">
@@ -692,10 +1027,13 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
               </div>
               <div className="max-h-36 overflow-y-auto space-y-1 divide-y divide-gray-100 pr-1">
                 {cart.map((c) => (
-                  <div key={c.medicine_id} className="pt-1 flex justify-between">
-                    <span className="truncate max-w-[200px] text-gray-700">{c.medicine_name}</span>
+                  <div key={c.inventory_id} className="pt-1 flex justify-between items-center text-[11px]">
+                    <div className="space-y-0.5">
+                      <span className="font-semibold text-gray-800">{c.medicine_name}</span>
+                      <span className="text-gray-500 ml-1">({c.quantity}u • {c.days_supply}d supply)</span>
+                    </div>
                     <span className="font-mono font-semibold text-[#006B4F]">
-                      {c.quantity} × ₹{c.unit_price.toFixed(2)} = ₹{(c.quantity * c.unit_price).toFixed(2)}
+                      ₹{(c.quantity * c.unit_price).toFixed(2)}
                     </span>
                   </div>
                 ))}
@@ -705,6 +1043,47 @@ export const BillingPage: React.FC<BillingPageProps> = ({ onRefreshData }) => {
                 <span className="text-[#006B4F] font-mono">₹{subtotal.toFixed(2)}</span>
               </div>
             </div>
+
+            {(patientName || patientPhone) && (
+              <div className="flex justify-between items-center text-xs px-2 py-1.5 bg-[#F3FAF7] border border-[#D9E8E3] rounded-xl text-gray-700">
+                <span className="truncate max-w-[200px]">
+                  Patient: <strong className="text-gray-900">{patientName || 'Walk-in'}</strong>
+                </span>
+                {patientPhone && (
+                  <span className="font-mono text-[#006B4F] flex items-center space-x-1 shrink-0 font-semibold">
+                    <Phone className="w-3 h-3" />
+                    <span>{patientPhone}</span>
+                  </span>
+                )}
+              </div>
+            )}
+
+            {(selectedPatientId || patientPhone) && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 flex items-center space-x-2">
+                <Bell className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span>
+                  Refill reminders will be automatically scheduled ~7 days before each medication supply ends.
+                </span>
+              </div>
+            )}
+
+            {patientPhone && (
+              <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-[11px] text-blue-900 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <MessageSquare className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                  <span>
+                    {notificationConsent 
+                      ? 'Autonomous SMS notification will be dispatched to patient phone.' 
+                      : 'SMS notification skipped (Patient consent disabled).'}
+                  </span>
+                </div>
+                <span className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  notificationConsent ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-700'
+                }`}>
+                  {notificationConsent ? 'SMS ENABLED' : 'OPTED OUT'}
+                </span>
+              </div>
+            )}
 
             <p className="text-[11px] text-gray-500 leading-relaxed">
               Confirming will atomically reduce stock across active batches in PostgreSQL via FEFO protocol.

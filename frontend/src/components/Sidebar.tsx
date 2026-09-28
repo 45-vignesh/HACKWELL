@@ -14,7 +14,8 @@ import {
   History,
   Star,
   Database,
-  Receipt
+  Receipt,
+  CalendarClock
 } from 'lucide-react';
 
 export type ActiveTab =
@@ -31,7 +32,8 @@ export type ActiveTab =
   | 'analytics'
   | 'audit'
   | 'data-quality'
-  | 'billing';
+  | 'billing'
+  | 'reminders';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -54,7 +56,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const workspaceItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    ...(isPharmacistOrAdmin ? [{ id: 'billing', label: 'Billing', icon: Receipt }] : []),
+    ...(isPharmacistOrAdmin ? [
+      { id: 'billing', label: 'Billing', icon: Receipt },
+      { id: 'reminders', label: 'Refill Reminders', icon: CalendarClock }
+    ] : []),
     { id: 'approvals', label: 'Approvals', icon: ShieldCheck, badge: pendingApprovalsCount, badgeColor: 'bg-[#16A34A]/25 text-emerald-300' },
     { id: 'alerts', label: 'Live Alerts', icon: Bell, badge: criticalAlertsCount, badgeColor: 'bg-[#DC2626]/30 text-rose-200' },
     { id: 'inventory', label: 'Inventory', icon: Boxes },

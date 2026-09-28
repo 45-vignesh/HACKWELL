@@ -46,5 +46,20 @@ class Settings(BaseSettings):
     CRITICAL_STOCKOUT_DAYS_THRESHOLD: float = 3.0
     WARNING_STOCKOUT_DAYS_THRESHOLD: float = 7.0
     EXPIRY_WARNING_DAYS: int = 90
+    
+    # Patient Refill Reminder Configuration
+    REFILL_REMINDER_WINDOW_DAYS: int = 7
+
+    # Real SMS Provider Configuration
+    SMS_PROVIDER: str = "auto"
+    SMS_API_KEY: str = ""
+    SMS_API_SECRET: str = ""
+    SMS_SENDER_ID: str = "MEDISENT"
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_PHONE_NUMBER: str = ""
+    FAST2SMS_API_KEY: str = ""
+    SMS_GATEWAY_URL: str = ""
+    SMS_DEFAULT_SENDER: str = "MEDISENTINEL"
 
 settings = Settings()

@@ -103,6 +103,26 @@ class BillStatus(str, enum.Enum):
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
 
+class ReminderStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    SENT = "SENT"
+    DELIVERED = "DELIVERED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    OPTED_OUT = "OPTED_OUT"
+
+class NotificationChannel(str, enum.Enum):
+    SMS = "SMS"
+    EMAIL = "EMAIL"
+    IN_APP = "IN_APP"
+
+class NotificationStatus(str, enum.Enum):
+    SIMULATED = "SIMULATED"
+    SENT = "SENT"
+    DELIVERED = "DELIVERED"
+    FAILED = "FAILED"
+    QUEUED = "QUEUED"
+
 
 # Models
 class Medicine(Base):
@@ -545,6 +565,7 @@ class Bill(Base):
     status = Column(Enum(BillStatus), default=BillStatus.SUCCESS, nullable=False, index=True)
     subtotal = Column(Float, default=0.0)
     total_amount = Column(Float, default=0.0)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=True, index=True)
     patient_name = Column(String(150), nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -553,6 +574,8 @@ class Bill(Base):
     ward = relationship("Ward")
     company = relationship("Company")
     branch = relationship("Branch")
+    patient = relationship("Patient", back_populates="bills")
+    notification_logs = relationship("NotificationLog", back_populates="bill", cascade="all, delete-orphan")
 
 class BillItem(Base):
     __tablename__ = "bill_items"
@@ -560,8 +583,11 @@ class BillItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     bill_id = Column(Integer, ForeignKey("bills.id"), nullable=False, index=True)
     medicine_id = Column(Integer, ForeignKey("medicines.id"), nullable=False, index=True)
+    inventory_id = Column(Integer, ForeignKey("inventory.id"), nullable=True, index=True)
+    ward_id = Column(Integer, ForeignKey("wards.id"), nullable=True, index=True)
     batch_id = Column(Integer, ForeignKey("inventory_batches.id"), nullable=True, index=True)
     quantity = Column(Integer, nullable=False)
+    days_supply = Column(Integer, nullable=True)
     unit_price = Column(Float, nullable=False)
     total_price = Column(Float, nullable=False)
     previous_stock = Column(Integer, nullable=True)
@@ -571,5 +597,73 @@ class BillItem(Base):
     bill = relationship("Bill", back_populates="items")
     medicine = relationship("Medicine")
     batch = relationship("InventoryBatch")
+    inventory = relationship("Inventory")
+    ward = relationship("Ward")
+    reminders = relationship("MedicationReminder", back_populates="bill_item")
+
+class Patient(Base):
+    __tablename__ = "patients"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(String(50), unique=True, index=True, nullable=False)
+    full_name = Column(String(150), nullable=False, index=True)
+    mobile_number = Column(String(30), nullable=False)
+    email = Column(String(150), nullable=True)
+    notification_consent = Column(Boolean, default=True, nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    bills = relationship("Bill", back_populates="patient")
+    reminders = relationship("MedicationReminder", back_populates="patient", cascade="all, delete-orphan")
+    company = relationship("Company")
+    branch = relationship("Branch")
+
+class MedicationReminder(Base):
+    __tablename__ = "medication_reminders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    bill_id = Column(Integer, ForeignKey("bills.id"), nullable=False, index=True)
+    bill_item_id = Column(Integer, ForeignKey("bill_items.id"), nullable=True, index=True)
+    medicine_id = Column(Integer, ForeignKey("medicines.id"), nullable=False, index=True)
+    quantity = Column(Integer, nullable=False)
+    days_supply = Column(Integer, nullable=False)
+    bill_date = Column(DateTime, nullable=False)
+    estimated_finish_date = Column(Date, nullable=False, index=True)
+    reminder_date = Column(Date, nullable=False, index=True)
+    status = Column(Enum(ReminderStatus), default=ReminderStatus.PENDING, nullable=False, index=True)
+    notification_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    patient = relationship("Patient", back_populates="reminders")
+    bill = relationship("Bill")
+    bill_item = relationship("BillItem", back_populates="reminders")
+    medicine = relationship("Medicine")
+    notification_logs = relationship("NotificationLog", back_populates="reminder", cascade="all, delete-orphan")
+
+class NotificationLog(Base):
+    __tablename__ = "notification_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reminder_id = Column(Integer, ForeignKey("medication_reminders.id"), nullable=True, index=True)
+    bill_id = Column(Integer, ForeignKey("bills.id", ondelete="CASCADE"), nullable=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="SET NULL"), nullable=True, index=True)
+    channel = Column(String(30), default="SMS", nullable=False)
+    recipient = Column(String(100), nullable=False)
+    masked_phone_number = Column(String(50), nullable=True)
+    message = Column(Text, nullable=False)
+    provider = Column(String(100), nullable=True)
+    provider_message_id = Column(String(150), nullable=True, index=True)
+    status = Column(String(30), default="QUEUED", nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    sent_at = Column(DateTime, default=datetime.utcnow, index=True)
+    delivered_at = Column(DateTime, nullable=True)
+    failure_reason = Column(Text, nullable=True)
+
+    reminder = relationship("MedicationReminder", back_populates="notification_logs")
+    bill = relationship("Bill", back_populates="notification_logs")
+    patient = relationship("Patient")
+
 
 

@@ -19,7 +19,9 @@ from app.routes import (
     data_quality,
     auth,
     audit_trail,
-    billing
+    billing,
+    patient_reminders,
+    sms_webhook
 )
 
 
@@ -34,6 +36,16 @@ logger = logging.getLogger("medisentinel")
 async def lifespan(app: FastAPI):
     logger.info("Initializing MediSentinel database tables...")
     Base.metadata.create_all(bind=engine)
+    try:
+        from app.database import SessionLocal
+        from app.services.patient_reminder_service import seed_default_patients
+        db = SessionLocal()
+        try:
+            seed_default_patients(db)
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Error seeding default patients: {e}")
     logger.info("MediSentinel Autonomous Engine ready.")
     yield
     logger.info("Shutting down MediSentinel...")
@@ -70,6 +82,8 @@ app.include_router(data_quality.router)
 app.include_router(auth.router)
 app.include_router(audit_trail.router)
 app.include_router(billing.router)
+app.include_router(patient_reminders.router)
+app.include_router(sms_webhook.router)
 
 
 if __name__ == "__main__":

@@ -9,11 +9,13 @@ import { DataManagerModal } from '../components/DataManagerModal';
 interface InventoryPageProps {
   onSelectMedicine: (id: number) => void;
   onNavigateToForecast: (medicineId: number) => void;
+  refreshTrigger?: number;
 }
 
 export const InventoryPage: React.FC<InventoryPageProps> = ({
   onSelectMedicine,
-  onNavigateToForecast
+  onNavigateToForecast,
+  refreshTrigger
 }) => {
   const { user, role } = useAuth();
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -44,7 +46,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [categoryFilter, riskFilter]);
+  }, [categoryFilter, riskFilter, refreshTrigger]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

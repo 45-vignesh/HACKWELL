@@ -21,6 +21,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { DataQualityPage } from './pages/DataQualityPage';
 import { BillingPage } from './pages/BillingPage';
+import { RemindersPage } from './pages/RemindersPage';
 
 
 import { DashboardSummary } from './types';
@@ -46,6 +47,7 @@ const AppContent: React.FC = () => {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [selectedInventoryId, setSelectedInventoryId] = useState<number | null>(null);
   const [forecastMedicineId, setForecastMedicineId] = useState<number>(1);
+  const [inventoryRefreshKey, setInventoryRefreshKey] = useState<number>(0);
 
   const handleNavigateTab = (newTab: ActiveTab) => {
     setTabHistory((prev) => (prev[prev.length - 1] === newTab ? prev : [...prev, newTab]));
@@ -139,6 +141,7 @@ const AppContent: React.FC = () => {
               <InventoryPage
                 onSelectMedicine={(id) => setSelectedInventoryId(id)}
                 onNavigateToForecast={handleNavigateToForecast}
+                refreshTrigger={inventoryRefreshKey}
               />
             )}
 
@@ -176,7 +179,15 @@ const AppContent: React.FC = () => {
             {activeTab === 'audit' && <AuditLogPage />}
             {activeTab === 'data-quality' && <DataQualityPage />}
             {activeTab === 'billing' && (
-              <BillingPage onRefreshData={() => fetchSummary(true)} />
+              <BillingPage
+                onRefreshData={() => {
+                  fetchSummary(true);
+                  setInventoryRefreshKey((prev) => prev + 1);
+                }}
+              />
+            )}
+            {activeTab === 'reminders' && (
+              <RemindersPage />
             )}
 
           </main>
