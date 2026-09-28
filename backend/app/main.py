@@ -18,8 +18,10 @@ from app.routes import (
     chat,
     data_quality,
     auth,
-    audit_trail
+    audit_trail,
+    billing
 )
+
 
 # Configure logging
 logging.basicConfig(
@@ -67,6 +69,8 @@ app.include_router(chat.router)
 app.include_router(data_quality.router)
 app.include_router(auth.router)
 app.include_router(audit_trail.router)
+app.include_router(billing.router)
+
 
 if __name__ == "__main__":
     import uvicorn

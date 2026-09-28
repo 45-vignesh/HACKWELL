@@ -4,8 +4,9 @@ from pydantic import BaseModel, Field, ConfigDict
 from app.models.entities import (
     CriticalityLevel, DepartmentType, BatchStatus, OrderStatus,
     PriorityLevel, TransferStatus, RiskLevel, AlertSeverity,
-    AlertType, AlertStatus, ActionType, ApprovalStatus
+    AlertType, AlertStatus, ActionType, ApprovalStatus, BillStatus
 )
+
 
 # Base Models
 class MedicineBase(BaseModel):
@@ -408,4 +409,53 @@ class DataAuditTrailResponse(BaseModel):
     source: str
     timestamp: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class BillItemInput(BaseModel):
+    medicine_id: int
+    quantity: int
+
+class BillCreateRequest(BaseModel):
+    ward_id: Optional[int] = None
+    patient_name: Optional[str] = None
+    notes: Optional[str] = None
+    items: List[BillItemInput]
+
+class BillItemDetailResponse(BaseModel):
+    id: int
+    medicine_id: int
+    medicine_name: str
+    medicine_code: str
+    quantity: int
+    unit_price: float
+    total_price: float
+    previous_stock: Optional[int] = None
+    updated_stock: Optional[int] = None
+    batch_deductions: Optional[List[Dict[str, Any]]] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class BillResponse(BaseModel):
+    id: int
+    bill_number: str
+    company_id: Optional[int] = None
+    branch_id: Optional[int] = None
+    ward_id: Optional[int] = None
+    ward_name: Optional[str] = None
+    created_by: str
+    role: str
+    status: str
+    subtotal: float
+    total_amount: float
+    patient_name: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    items: List[BillItemDetailResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+class BillCancelResponse(BaseModel):
+    message: str
+    bill_id: int
+    bill_number: str
+    status: str
+    reversed_items: List[Dict[str, Any]] = []
+
 

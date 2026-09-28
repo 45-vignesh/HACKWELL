@@ -11,8 +11,12 @@ import {
   DataSourceItem,
   DataQualityReport,
   Company,
-  Branch
+  Branch,
+  Bill,
+  BillCreatePayload,
+  BillCancelResponse
 } from '../types';
+
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -243,5 +247,24 @@ export const api = {
   getDataAuditTrail: async (params?: { user?: string; role?: string; action?: string; validation_result?: string; limit?: number }) => {
     const res = await client.get('/api/audit-trail/data', { params });
     return res.data;
+  },
+
+  // Pharmacy Billing & Operational Dispensing
+  getBills: async (wardId?: number): Promise<Bill[]> => {
+    const res = await client.get<Bill[]>('/api/billing/bills', { params: { ward_id: wardId } });
+    return res.data;
+  },
+  getBillById: async (idOrNumber: string | number): Promise<Bill> => {
+    const res = await client.get<Bill>(`/api/billing/bills/${idOrNumber}`);
+    return res.data;
+  },
+  createBill: async (payload: BillCreatePayload): Promise<Bill> => {
+    const res = await client.post<Bill>('/api/billing/bills', payload);
+    return res.data;
+  },
+  cancelBill: async (billId: number): Promise<BillCancelResponse> => {
+    const res = await client.post<BillCancelResponse>(`/api/billing/bills/${billId}/cancel`);
+    return res.data;
   }
 };
+

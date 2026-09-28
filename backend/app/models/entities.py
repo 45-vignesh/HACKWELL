@@ -97,6 +97,13 @@ class UserRole(str, enum.Enum):
     PHARMACIST = "PHARMACIST"
     ADMIN = "ADMIN"
 
+class BillStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
 # Models
 class Medicine(Base):
     __tablename__ = "medicines"
@@ -524,4 +531,45 @@ class DataAuditTrail(Base):
     validation_result = Column(String(50), default="VALIDATED", nullable=False, index=True)
     source = Column(String(50), default="MANUAL", nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+
+class Bill(Base):
+    __tablename__ = "bills"
+
+    id = Column(Integer, primary_key=True, index=True)
+    bill_number = Column(String(50), unique=True, index=True, nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
+    ward_id = Column(Integer, ForeignKey("wards.id"), nullable=True, index=True)
+    created_by = Column(String(100), nullable=False)
+    role = Column(String(50), nullable=False)
+    status = Column(Enum(BillStatus), default=BillStatus.SUCCESS, nullable=False, index=True)
+    subtotal = Column(Float, default=0.0)
+    total_amount = Column(Float, default=0.0)
+    patient_name = Column(String(150), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    items = relationship("BillItem", back_populates="bill", cascade="all, delete-orphan")
+    ward = relationship("Ward")
+    company = relationship("Company")
+    branch = relationship("Branch")
+
+class BillItem(Base):
+    __tablename__ = "bill_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    bill_id = Column(Integer, ForeignKey("bills.id"), nullable=False, index=True)
+    medicine_id = Column(Integer, ForeignKey("medicines.id"), nullable=False, index=True)
+    batch_id = Column(Integer, ForeignKey("inventory_batches.id"), nullable=True, index=True)
+    quantity = Column(Integer, nullable=False)
+    unit_price = Column(Float, nullable=False)
+    total_price = Column(Float, nullable=False)
+    previous_stock = Column(Integer, nullable=True)
+    updated_stock = Column(Integer, nullable=True)
+    batch_deductions = Column(JSON, default=list)
+
+    bill = relationship("Bill", back_populates="items")
+    medicine = relationship("Medicine")
+    batch = relationship("InventoryBatch")
+
 

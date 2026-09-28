@@ -338,3 +338,63 @@ export interface BatchImportResponse {
   rejected_errors?: any[];
 }
 
+export interface BillItemDeduction {
+  batch_id: number;
+  batch_number: string;
+  quantity: number;
+  expiry_date?: string;
+}
+
+export interface BillItemDetail {
+  id: number;
+  medicine_id: number;
+  medicine_name: string;
+  medicine_code: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  previous_stock?: number;
+  updated_stock?: number;
+  batch_deductions?: BillItemDeduction[];
+}
+
+export interface Bill {
+  id: number;
+  bill_number: string;
+  company_id?: number;
+  branch_id?: number;
+  ward_id?: number;
+  ward_name?: string;
+  created_by: string;
+  role: string;
+  status: 'DRAFT' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+  subtotal: number;
+  total_amount: number;
+  patient_name?: string;
+  notes?: string;
+  created_at: string;
+  items: BillItemDetail[];
+}
+
+export interface BillCreatePayload {
+  ward_id?: number;
+  patient_name?: string;
+  notes?: string;
+  items: { medicine_id: number; quantity: number }[];
+}
+
+export interface BillCancelResponse {
+  message: string;
+  bill_id: number;
+  bill_number: string;
+  status: string;
+  reversed_items: {
+    medicine_id: number;
+    medicine_name: string;
+    reversed_quantity: number;
+    previous_stock: number;
+    restored_stock: number;
+  }[];
+}
+
+
