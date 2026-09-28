@@ -321,6 +321,20 @@ class LoginResponse(BaseModel):
     token: str
     user: UserResponse
 
+class RegisterRequest(BaseModel):
+    full_name: str
+    username: str
+    email: str
+    password: str
+    confirm_password: str
+    role: str
+
+class RegisterResponse(BaseModel):
+    message: str = "Registration successful. You can now sign in."
+    username: str
+    role: str
+
+
 class StockUpdateRequest(BaseModel):
     new_stock: int
     reason: str

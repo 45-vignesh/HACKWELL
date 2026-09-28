@@ -3,6 +3,7 @@ import hashlib
 import json
 import base64
 import time
+import secrets
 from typing import Optional, List, Dict, Any
 from fastapi import HTTPException, Header, Depends, status
 from sqlalchemy.orm import Session
@@ -10,6 +11,25 @@ from app.database import get_db
 from app.models.entities import User, UserRole
 
 AUTH_SECRET = "medisentinel-data-governance-secret-key-2026"
+
+def hash_password(password: str, salt: Optional[str] = None) -> str:
+    """Hash password securely using PBKDF2-HMAC-SHA256 with salt."""
+    if not salt:
+        salt = secrets.token_hex(16)
+    key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
+    return f"{salt}${key.hex()}"
+
+def verify_password(plain_password: str, stored_hash: str) -> bool:
+    """Verify password against stored salt$hash string."""
+    if not stored_hash or "$" not in stored_hash:
+        return False
+    try:
+        salt, key_hex = stored_hash.split("$", 1)
+        computed = hashlib.pbkdf2_hmac('sha256', plain_password.encode('utf-8'), salt.encode('utf-8'), 100000)
+        return hmac.compare_digest(computed.hex(), key_hex)
+    except Exception:
+        return False
+
 
 # Demo Seed Users with Official Passwords
 DEFAULT_DEMO_USERS = [

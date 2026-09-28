@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 
 interface AdminLoginPageProps {
   onBack: () => void;
+  onGoToRegister?: () => void;
 }
 
-export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack }) => {
+export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onGoToRegister }) => {
   const { loginWithCredentials } = useAuth();
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('Admin@123');
@@ -36,7 +37,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack }) => {
 
   return (
     <div className="min-h-screen bg-transparent flex items-center justify-center p-4 sm:p-6 font-sans text-[#12332C] relative z-10">
-      <div className="w-full max-w-md bg-[#F3FAF7]/92 backdrop-blur-md border border-[#D9E8E3] rounded-[32px] p-6 sm:p-8 shadow-app-frame">
+      <div className="w-full max-w-md bg-[#F3FAF7]/85 backdrop-blur-md border border-[#D9E8E3] rounded-[32px] p-6 sm:p-8 shadow-app-frame">
         {/* Navigation Back */}
         <button
           onClick={onBack}
@@ -118,7 +119,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack }) => {
             </div>
           </div>
 
-          {/* Dedicated Role Credentials Box */}
+          {/* Credentials Helper Box */}
           <div className="p-3 bg-white border border-[#D9E8E3] rounded-2xl flex items-center justify-between text-xs">
             <div>
               <p className="font-semibold text-[#12332C]">Role Credentials:</p>
@@ -129,7 +130,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack }) => {
             <button
               type="button"
               onClick={handleUseDemo}
-              className="text-[11px] font-extrabold text-[#12332C] hover:underline px-2.5 py-1 rounded-lg bg-[#F4B400]/20 hover:bg-[#F4B400]/30 transition-colors"
+              className="text-[11px] font-bold text-[#12332C] hover:underline px-2.5 py-1 rounded-lg bg-[#F4B400]/20 hover:bg-[#F4B400]/30 transition-colors"
             >
               Use Role Credentials
             </button>
@@ -146,16 +147,29 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack }) => {
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Sign In as Administrator</span>
+                <span>Sign In</span>
               </>
             )}
           </button>
         </form>
 
+        {/* Link to Registration */}
+        {onGoToRegister && (
+          <div className="mt-5 text-center text-xs text-[#647772]">
+            <span>Need an account? </span>
+            <button
+              onClick={onGoToRegister}
+              className="font-bold text-[#b88500] hover:underline"
+            >
+              Register as Administrator
+            </button>
+          </div>
+        )}
+
         {/* Permissions Disclaimer */}
         <div className="mt-6 pt-4 border-t border-[#D9E8E3]/60 text-center">
           <p className="text-[11px] text-[#647772]">
-            Administrators have universal system access, user and credential administration, and full data governance audit trail review privileges.
+            Administrators manage system configurations, access policies, user accounts, and cryptographic audit compliance.
           </p>
         </div>
       </div>

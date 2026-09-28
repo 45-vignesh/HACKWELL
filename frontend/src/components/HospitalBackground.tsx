@@ -9,8 +9,8 @@ interface HospitalBackgroundProps {
 }
 
 export const HospitalBackground: React.FC<HospitalBackgroundProps> = ({
-  opacity = 0.15,
-  blur = '2px',
+  opacity = 0.20,
+  blur = '1.5px',
   className = ''
 }) => {
   return (
@@ -18,25 +18,26 @@ export const HospitalBackground: React.FC<HospitalBackgroundProps> = ({
       className={`fixed inset-0 z-0 pointer-events-none overflow-hidden select-none ${className}`}
       aria-hidden="true"
     >
-      {/* Layer 1: Ghibli-Inspired Hospital Illustration */}
+      {/* Layer 0: Base Canvas Background Tint */}
+      <div className="absolute inset-0 bg-[#E6F4F0]" />
+
+      {/* Layer 1: Hospital Ghibli-Inspired Background Illustration */}
       <div
-        className="absolute inset-0 bg-cover bg-no-repeat transition-opacity duration-1000 ease-out"
+        className="absolute inset-0 bg-cover bg-no-repeat transition-all duration-700 ease-out"
         style={{
           backgroundImage: 'url(/hospital-bg.jpg)',
-          backgroundPosition: 'center 28%',
+          backgroundPosition: 'center 26%',
           opacity,
-          filter: `blur(${blur}) saturate(1.12)`,
-          transform: 'scale(1.04)',
+          filter: `blur(${blur}) saturate(1.15)`,
+          transform: 'scale(1.03)',
         }}
       />
 
-      {/* Layer 2: Soft Mint / Healthcare Palette Overlay */}
+      {/* Layer 2: Soft Mint / Healthcare Readability Overlay */}
       <div
-        className="absolute inset-0 bg-gradient-to-b from-[#F3FAF7]/85 via-[#E6F4F0]/80 to-[#F3FAF7]/90"
-        style={{
-          backdropFilter: 'blur(0.5px)',
-        }}
+        className="absolute inset-0 bg-gradient-to-b from-[#F3FAF7]/45 via-[#E6F4F0]/35 to-[#F3FAF7]/50"
       />
     </div>
   );
 };
+

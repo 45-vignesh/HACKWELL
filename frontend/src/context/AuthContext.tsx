@@ -2,7 +2,17 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { api } from '../services/api';
 
-export type AuthPortalView = 'selection' | 'data_manager' | 'pharmacist' | 'admin';
+export type AuthPortalView =
+  | 'selection'
+  | 'data_manager'
+  | 'data_manager_login'
+  | 'data_manager_register'
+  | 'pharmacist'
+  | 'pharmacist_login'
+  | 'pharmacist_register'
+  | 'admin'
+  | 'admin_login'
+  | 'admin_register';
 
 interface AuthContextType {
   user: User | null;
@@ -12,6 +22,14 @@ interface AuthContextType {
   authPortalView: AuthPortalView;
   setAuthPortalView: (view: AuthPortalView) => void;
   loginWithCredentials: (username: string, password: string, role?: string) => Promise<any>;
+  registerAccount: (payload: {
+    full_name: string;
+    username: string;
+    email: string;
+    password: string;
+    confirm_password: string;
+    role: string;
+  }) => Promise<{ message: string; username: string; role: string }>;
   switchRole: (newRole: UserRole) => Promise<void>;
   logout: () => void;
   isLoginModalOpen: boolean;
@@ -26,6 +44,7 @@ const AuthContext = createContext<AuthContextType>({
   authPortalView: 'selection',
   setAuthPortalView: () => {},
   loginWithCredentials: async () => {},
+  registerAccount: async () => ({ message: '', username: '', role: '' }),
   switchRole: async () => {},
   logout: () => {},
   isLoginModalOpen: false,
@@ -36,10 +55,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<UserRole>('PHARMACIST');
   const [token, setToken] = useState<string | null>(null);
-  const [authPortalView, setAuthPortalView] = useState<AuthPortalView>('selection');
+  const [authPortalView, setAuthPortalView] = useState<AuthPortalView>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const p = params.get('portal');
+      if (p) return p as AuthPortalView;
+    } catch {}
+    return 'selection';
+  });
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const pr = params.get('preview_role') as UserRole;
+      if (pr) {
+        setRole(pr);
+        setUser({
+          id: pr === 'DATA_MANAGER' ? 1 : (pr === 'ADMIN' ? 3 : 2),
+          username: pr.toLowerCase(),
+          role: pr,
+          display_name: pr === 'DATA_MANAGER' ? 'Liam Patel' : (pr === 'ADMIN' ? 'Marcus Vance' : 'Dr. Sarah Alston'),
+          title: pr === 'DATA_MANAGER' ? 'Inventory Data Specialist' : (pr === 'ADMIN' ? 'Hospital Systems Administrator' : 'Chief Pharmacist & Clinical Approver')
+        });
+        setToken('preview_session_token');
+        return;
+      }
+    } catch {}
+
     const savedToken = localStorage.getItem('medisentinel_token');
     const savedRole = localStorage.getItem('medisentinel_role') as UserRole;
     const savedUser = localStorage.getItem('medisentinel_user');
@@ -68,6 +111,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoginModalOpen(false);
     }
     return res;
+  };
+
+  const registerAccount = async (payload: {
+    full_name: string;
+    username: string;
+    email: string;
+    password: string;
+    confirm_password: string;
+    role: string;
+  }) => {
+    return await api.register(payload);
   };
 
   const switchRole = async (newRole: UserRole) => {
@@ -108,6 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authPortalView,
         setAuthPortalView,
         loginWithCredentials,
+        registerAccount,
         switchRole,
         logout,
         isLoginModalOpen,

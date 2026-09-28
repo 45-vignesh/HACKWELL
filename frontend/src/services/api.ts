@@ -187,6 +187,17 @@ export const api = {
     }
     return res.data;
   },
+  register: async (payload: {
+    full_name: string;
+    username: string;
+    email: string;
+    password: string;
+    confirm_password: string;
+    role: string;
+  }) => {
+    const res = await client.post('/api/auth/register', payload);
+    return res.data;
+  },
   getMe: async () => {
     const res = await client.get('/api/auth/me');
     return res.data;

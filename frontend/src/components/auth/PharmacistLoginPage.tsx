@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 
 interface PharmacistLoginPageProps {
   onBack: () => void;
+  onGoToRegister?: () => void;
 }
 
-export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack }) => {
+export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack, onGoToRegister }) => {
   const { loginWithCredentials } = useAuth();
   const [username, setUsername] = useState('pharmacist');
   const [password, setPassword] = useState('Pharmacist@123');
@@ -36,7 +37,7 @@ export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack
 
   return (
     <div className="min-h-screen bg-transparent flex items-center justify-center p-4 sm:p-6 font-sans text-[#12332C] relative z-10">
-      <div className="w-full max-w-md bg-[#F3FAF7]/92 backdrop-blur-md border border-[#D9E8E3] rounded-[32px] p-6 sm:p-8 shadow-app-frame">
+      <div className="w-full max-w-md bg-[#F3FAF7]/85 backdrop-blur-md border border-[#D9E8E3] rounded-[32px] p-6 sm:p-8 shadow-app-frame">
         {/* Navigation Back */}
         <button
           onClick={onBack}
@@ -60,7 +61,7 @@ export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack
             Chief Pharmacist Login
           </h1>
           <p className="text-xs text-[#008F83] font-bold mt-1">
-            Clinical Approval & Inventory Intelligence
+            Clinical Approval & AI Oversight Portal
           </p>
           <p className="text-xs text-[#647772] mt-2 max-w-xs mx-auto">
             Review forecasts, alerts and approve high-risk AI recommendations.
@@ -118,7 +119,7 @@ export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack
             </div>
           </div>
 
-          {/* Dedicated Role Credentials Box */}
+          {/* Credentials Helper Box */}
           <div className="p-3 bg-white border border-[#D9E8E3] rounded-2xl flex items-center justify-between text-xs">
             <div>
               <p className="font-semibold text-[#12332C]">Role Credentials:</p>
@@ -146,16 +147,29 @@ export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Sign In as Chief Pharmacist</span>
+                <span>Sign In</span>
               </>
             )}
           </button>
         </form>
 
+        {/* Link to Registration */}
+        {onGoToRegister && (
+          <div className="mt-5 text-center text-xs text-[#647772]">
+            <span>Need an account? </span>
+            <button
+              onClick={onGoToRegister}
+              className="font-bold text-[#008F83] hover:underline"
+            >
+              Register as Chief Pharmacist
+            </button>
+          </div>
+        )}
+
         {/* Permissions Disclaimer */}
         <div className="mt-6 pt-4 border-t border-[#D9E8E3]/60 text-center">
           <p className="text-[11px] text-[#647772]">
-            Chief Pharmacists hold full clinical oversight: authorization of AI purchase orders, emergency stock transfers, and risk alerts. Direct inventory edits remain read-only.
+            Chief Pharmacists are clinical authority holders authorized to approve drug orders, transfer requests, and monitor predictive safety buffers.
           </p>
         </div>
       </div>

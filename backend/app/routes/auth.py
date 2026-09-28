@@ -3,16 +3,108 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.entities import User, UserRole
-from app.schemas.schemas import LoginRequest, LoginResponse, UserResponse
+from datetime import datetime
+from sqlalchemy import func
+from app.schemas.schemas import LoginRequest, LoginResponse, UserResponse, RegisterRequest, RegisterResponse
 from app.services.auth_service import (
     DEFAULT_DEMO_USERS,
     ensure_seed_users,
     create_access_token,
     get_current_user,
-    require_role
+    require_role,
+    hash_password,
+    verify_password
 )
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication & RBAC"])
+
+@router.post("/register", response_model=RegisterResponse)
+def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+    """
+    Register a new user account with dedicated role assignment.
+    Validates required fields, email, password strength, confirmation, and uniqueness.
+    """
+    ensure_seed_users(db)
+
+    full_name = payload.full_name.strip() if payload.full_name else ""
+    username = payload.username.lower().strip() if payload.username else ""
+    email = payload.email.lower().strip() if payload.email else ""
+    password = payload.password or ""
+    confirm_password = payload.confirm_password or ""
+    role_str = payload.role.upper().strip().replace(" ", "_") if payload.role else ""
+
+    if not full_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Full Name is required.")
+    if not username:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username is required.")
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email is required.")
+    if not password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password is required.")
+
+    import re
+    email_regex = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+    if not re.match(email_regex, email):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide a valid email address.")
+
+    if len(password) < 6:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must be at least 6 characters long.")
+    if password != confirm_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passwords do not match.")
+
+    valid_roles = [r.value for r in UserRole]
+    if role_str not in valid_roles:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid role: {payload.role}. Allowed: DATA_MANAGER, PHARMACIST, ADMIN."
+        )
+
+    # Check username uniqueness against seed users
+    if any(u["username"] == username for u in DEFAULT_DEMO_USERS):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Username '{username}' is already reserved.")
+
+    # Check username uniqueness against database users
+    existing_user = db.query(User).filter(func.lower(User.username) == username).first()
+    if existing_user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Username '{username}' is already taken.")
+
+    # Check email uniqueness against database users
+    existing_email = db.query(User).filter(func.lower(User.email) == email).first()
+    if existing_email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"An account with email '{email}' already exists.")
+
+    role_titles = {
+        UserRole.DATA_MANAGER.value: "Inventory Data Specialist",
+        UserRole.PHARMACIST.value: "Clinical Pharmacist",
+        UserRole.ADMIN.value: "Hospital Systems Administrator"
+    }
+    title = role_titles.get(role_str, "Hospital Staff")
+
+    p_hash = hash_password(password)
+
+    new_user = User(
+        username=username,
+        role=UserRole(role_str),
+        display_name=full_name,
+        title=title,
+        email=email,
+        password_hash=p_hash,
+        active=True,
+        created_at=datetime.utcnow()
+    )
+    db.add(new_user)
+    try:
+        db.commit()
+        db.refresh(new_user)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to register account: {str(e)}")
+
+    return RegisterResponse(
+        message="Registration successful. You can now sign in.",
+        username=new_user.username,
+        role=new_user.role.value if hasattr(new_user.role, 'value') else str(new_user.role)
+    )
 
 @router.post("/login", response_model=LoginResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
@@ -29,7 +121,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         if not matched:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unknown demo role: {payload.demo_role}. Choose DATA_MANAGER, PHARMACIST, or ADMIN."
+                detail=f"Unknown role: {payload.demo_role}. Choose DATA_MANAGER, PHARMACIST, or ADMIN."
             )
         token = create_access_token(
             username=matched["username"],
@@ -64,6 +156,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     user_display = ""
     user_title = ""
     user_pass = ""
+    db_user = None
 
     if matched:
         user_role = matched["role"]
@@ -89,7 +182,15 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             user_pass = "Admin@123"
 
     # Enforce password check
-    if payload.password != user_pass:
+    password_valid = False
+    if db_user and db_user.password_hash:
+        password_valid = verify_password(payload.password, db_user.password_hash)
+    elif matched:
+        password_valid = (payload.password == matched.get("password", ""))
+    else:
+        password_valid = (payload.password == user_pass)
+
+    if not password_valid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password.")
 
     # Enforce portal role restriction if specified

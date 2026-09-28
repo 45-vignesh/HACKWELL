@@ -1,15 +1,28 @@
 import React from 'react';
-import { Database, ShieldCheck, Building2, ArrowRight, Shield, Activity } from 'lucide-react';
+import { Database, ShieldCheck, Building2, ArrowRight, Shield, Activity, ArrowLeft, UserPlus, LogIn } from 'lucide-react';
 import { AuthPortalView } from '../../context/AuthContext';
 
 interface RoleSelectionScreenProps {
   onSelectRole: (role: AuthPortalView) => void;
+  onBack?: () => void;
 }
 
-export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ onSelectRole }) => {
+export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ onSelectRole, onBack }) => {
   return (
     <div className="min-h-screen bg-transparent flex items-center justify-center p-4 sm:p-6 md:p-8 font-sans text-[#12332C] relative z-10">
-      <div className="w-full max-w-5xl bg-[#F3FAF7]/92 backdrop-blur-md border border-[#D9E8E3] rounded-[32px] p-6 sm:p-10 md:p-12 shadow-app-frame">
+      <div className="w-full max-w-5xl bg-[#F3FAF7]/85 backdrop-blur-md border border-[#D9E8E3] rounded-[32px] p-6 sm:p-10 md:p-12 shadow-app-frame relative">
+        {/* Optional Back Arrow if navigating from within app */}
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="inline-flex items-center space-x-2 text-xs font-semibold text-[#647772] hover:text-[#006B4F] mb-4 transition-colors group"
+            title="Back"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            <span>Back</span>
+          </button>
+        )}
+
         {/* Brand Header */}
         <div className="text-center mb-10 sm:mb-12">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white border border-[#D9E8E3] shadow-sm mb-4">
@@ -24,7 +37,7 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ onSele
             MediSentinel Secure Access
           </h1>
           <p className="mt-2 text-base text-[#647772] font-medium">
-            Choose your role to continue
+            Choose your access portal
           </p>
         </div>
 
@@ -45,24 +58,31 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ onSele
 
               {/* Title & Description */}
               <h2 className="text-xl font-bold text-[#12332C] mb-1">
-                Inventory & Data Management
+                Data Manager
               </h2>
-              <p className="text-xs text-[#006B4F] font-semibold mb-3">
-                Operational Stock & CSV Portal
+              <p className="text-sm font-semibold text-[#006B4F] mb-2">
+                Inventory & Data Management
               </p>
-              <p className="text-sm text-[#647772] leading-relaxed">
-                Maintain trusted hospital inventory and operational data.
+              <p className="text-xs text-[#647772] leading-relaxed">
+                Maintain trusted hospital inventory, upload operational CSV datasets, and manage data quality.
               </p>
             </div>
 
-            {/* Dedicated Action Button */}
-            <div className="mt-8 pt-6 border-t border-[#D9E8E3]/60">
+            {/* Dedicated Action Buttons: Login & Register */}
+            <div className="mt-8 pt-6 border-t border-[#D9E8E3]/60 space-y-2.5">
               <button
-                onClick={() => onSelectRole('data_manager')}
-                className="w-full py-3 px-4 rounded-2xl bg-[#006B4F] hover:bg-[#004D3A] text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-98 group-hover:shadow-md"
+                onClick={() => onSelectRole('data_manager_login')}
+                className="w-full py-2.5 px-4 rounded-2xl bg-[#006B4F] hover:bg-[#004D3A] text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-98"
               >
-                <span>Data Manager Login</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                <LogIn className="w-4 h-4" />
+                <span>Login</span>
+              </button>
+              <button
+                onClick={() => onSelectRole('data_manager_register')}
+                className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-[#006B4F]/5 text-[#006B4F] border border-[#006B4F]/30 hover:border-[#006B4F] font-bold text-sm flex items-center justify-center space-x-2 transition-all active:scale-98"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Register</span>
               </button>
             </div>
           </div>
@@ -82,24 +102,31 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ onSele
 
               {/* Title & Description */}
               <h2 className="text-xl font-bold text-[#12332C] mb-1">
-                Clinical Approval & AI Oversight
+                Chief Pharmacist
               </h2>
-              <p className="text-xs text-[#008F83] font-semibold mb-3">
-                Clinical Intelligence & Approvals
+              <p className="text-sm font-semibold text-[#008F83] mb-2">
+                Clinical Approval & AI Oversight
               </p>
-              <p className="text-sm text-[#647772] leading-relaxed">
-                Review forecasts, alerts and approve high-risk AI recommendations.
+              <p className="text-xs text-[#647772] leading-relaxed">
+                Review forecasts, critical stock alerts, approve high-risk AI recommendations, and authorize orders.
               </p>
             </div>
 
-            {/* Dedicated Action Button */}
-            <div className="mt-8 pt-6 border-t border-[#D9E8E3]/60">
+            {/* Dedicated Action Buttons: Login & Register */}
+            <div className="mt-8 pt-6 border-t border-[#D9E8E3]/60 space-y-2.5">
               <button
-                onClick={() => onSelectRole('pharmacist')}
-                className="w-full py-3 px-4 rounded-2xl bg-[#008F83] hover:bg-[#007066] text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-98 group-hover:shadow-md"
+                onClick={() => onSelectRole('pharmacist_login')}
+                className="w-full py-2.5 px-4 rounded-2xl bg-[#008F83] hover:bg-[#007066] text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-98"
               >
-                <span>Chief Pharmacist Login</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                <LogIn className="w-4 h-4" />
+                <span>Login</span>
+              </button>
+              <button
+                onClick={() => onSelectRole('pharmacist_register')}
+                className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-[#008F83]/5 text-[#008F83] border border-[#008F83]/30 hover:border-[#008F83] font-bold text-sm flex items-center justify-center space-x-2 transition-all active:scale-98"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Register</span>
               </button>
             </div>
           </div>
@@ -119,24 +146,31 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ onSele
 
               {/* Title & Description */}
               <h2 className="text-xl font-bold text-[#12332C] mb-1">
-                System Administration
+                Hospital Administrator
               </h2>
-              <p className="text-xs text-[#b88500] font-semibold mb-3">
-                Governance & User Access
+              <p className="text-sm font-semibold text-[#b88500] mb-2">
+                Hospital Systems Administration
               </p>
-              <p className="text-sm text-[#647772] leading-relaxed">
-                Manage hospital system access, users and governance.
+              <p className="text-xs text-[#647772] leading-relaxed">
+                Manage hospital system access, user accounts, audit ledgers, and governance oversight.
               </p>
             </div>
 
-            {/* Dedicated Action Button */}
-            <div className="mt-8 pt-6 border-t border-[#D9E8E3]/60">
+            {/* Dedicated Action Buttons: Login & Register */}
+            <div className="mt-8 pt-6 border-t border-[#D9E8E3]/60 space-y-2.5">
               <button
-                onClick={() => onSelectRole('admin')}
-                className="w-full py-3 px-4 rounded-2xl bg-[#F4B400] hover:bg-[#e0a400] text-[#12332C] font-extrabold text-sm flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-98 group-hover:shadow-md"
+                onClick={() => onSelectRole('admin_login')}
+                className="w-full py-2.5 px-4 rounded-2xl bg-[#F4B400] hover:bg-[#e0a400] text-[#12332C] font-extrabold text-sm flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-98"
               >
-                <span>Administrator Login</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                <LogIn className="w-4 h-4" />
+                <span>Login</span>
+              </button>
+              <button
+                onClick={() => onSelectRole('admin_register')}
+                className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-[#F4B400]/10 text-[#12332C] border border-[#F4B400]/40 hover:border-[#F4B400] font-bold text-sm flex items-center justify-center space-x-2 transition-all active:scale-98"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Register</span>
               </button>
             </div>
           </div>
@@ -145,7 +179,7 @@ export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ onSele
         {/* Security Footer Notice */}
         <div className="mt-10 sm:mt-12 text-center flex items-center justify-center space-x-2 text-xs text-[#647772]">
           <Shield className="w-4 h-4 text-[#006B4F]" />
-          <span>Enterprise Role-Based Access Control & End-to-End Cryptographic Audit Ledger</span>
+          <span>Enterprise Role-Based Access Control & Cryptographic Audit Ledger</span>
         </div>
       </div>
     </div>

@@ -471,6 +471,8 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.DATA_MANAGER, nullable=False, index=True)
     display_name = Column(String(100), nullable=False)
     title = Column(String(100), nullable=True)
+    email = Column(String(150), nullable=True, index=True)
+    password_hash = Column(String(255), nullable=True)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

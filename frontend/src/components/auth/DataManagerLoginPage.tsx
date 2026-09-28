@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 
 interface DataManagerLoginPageProps {
   onBack: () => void;
+  onGoToRegister?: () => void;
 }
 
-export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBack }) => {
+export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBack, onGoToRegister }) => {
   const { loginWithCredentials } = useAuth();
   const [username, setUsername] = useState('data_manager');
   const [password, setPassword] = useState('DataManager@123');
@@ -36,7 +37,7 @@ export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBa
 
   return (
     <div className="min-h-screen bg-transparent flex items-center justify-center p-4 sm:p-6 font-sans text-[#12332C] relative z-10">
-      <div className="w-full max-w-md bg-[#F3FAF7]/92 backdrop-blur-md border border-[#D9E8E3] rounded-[32px] p-6 sm:p-8 shadow-app-frame">
+      <div className="w-full max-w-md bg-[#F3FAF7]/85 backdrop-blur-md border border-[#D9E8E3] rounded-[32px] p-6 sm:p-8 shadow-app-frame">
         {/* Navigation Back */}
         <button
           onClick={onBack}
@@ -118,7 +119,7 @@ export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBa
             </div>
           </div>
 
-          {/* Dedicated Role Credentials Box */}
+          {/* Credentials Helper Box */}
           <div className="p-3 bg-white border border-[#D9E8E3] rounded-2xl flex items-center justify-between text-xs">
             <div>
               <p className="font-semibold text-[#12332C]">Role Credentials:</p>
@@ -146,11 +147,24 @@ export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBa
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Sign In as Data Manager</span>
+                <span>Sign In</span>
               </>
             )}
           </button>
         </form>
+
+        {/* Link to Registration */}
+        {onGoToRegister && (
+          <div className="mt-5 text-center text-xs text-[#647772]">
+            <span>Need an account? </span>
+            <button
+              onClick={onGoToRegister}
+              className="font-bold text-[#006B4F] hover:underline"
+            >
+              Register as Data Manager
+            </button>
+          </div>
+        )}
 
         {/* Permissions Disclaimer */}
         <div className="mt-6 pt-4 border-t border-[#D9E8E3]/60 text-center">
