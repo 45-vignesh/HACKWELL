@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Check, X, Clock, AlertTriangle, Sparkles } from 'lucide-react';
+import { ShieldCheck, Check, X, Clock, AlertTriangle, Sparkles, ShieldAlert, Lock } from 'lucide-react';
 import { ApprovalItem } from '../types';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 interface ApprovalsPageProps {
   onRefreshData: () => void;
 }
 
 export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({ onRefreshData }) => {
+  const { user, role } = useAuth();
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING');
@@ -84,6 +86,19 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({ onRefreshData }) =
           ))}
         </div>
       </div>
+
+      {/* Role Restriction Notice for Data Manager */}
+      {role === 'DATA_MANAGER' && (
+        <div className="p-4 bg-amber-50 border border-amber-300 rounded-3xl flex items-start space-x-3 text-xs text-amber-900 shadow-sm">
+          <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-bold text-amber-950 text-sm">Pharmacist-Only Governance Gate</h4>
+            <p className="mt-0.5 leading-relaxed">
+              You are authenticated as <strong>Data Manager ({user?.display_name || 'Alex Chen'})</strong>. Under MediSentinel clinical governance rules, operational inventory data managers have view-only access to AI recommendation queues. Only licensed Pharmacists or Hospital Administrators can authorize purchase orders or inter-ward stock transfers.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Approvals Cards */}
       <div className="space-y-4">
@@ -185,25 +200,38 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({ onRefreshData }) =
                     </div>
 
                     {isPending ? (
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleDecision(appr.id, 'APPROVE')}
-                          disabled={processingId === appr.id}
-                          className="ref-pill-btn px-5 py-2.5 bg-[#006B4F] hover:bg-[#004D3A] text-white rounded-full text-xs font-bold shadow-md flex items-center space-x-1.5 transition-all active:scale-95 disabled:opacity-50"
-                        >
-                          <Check className="w-4 h-4 stroke-[3]" />
-                          <span>Approve & Execute</span>
-                        </button>
-                        <button
-                          onClick={() => handleDecision(appr.id, 'REJECT')}
-                          disabled={processingId === appr.id}
-                          className="w-9 h-9 rounded-full bg-[#DC2626]/10 hover:bg-[#DC2626] text-[#DC2626] hover:text-white border border-[#DC2626]/25 flex items-center justify-center transition-all disabled:opacity-50"
-                          title="Reject"
-                        >
-                          <X className="w-4 h-4" />
-                          <span className="sr-only">Reject</span>
-                        </button>
-                      </div>
+                      role === 'DATA_MANAGER' ? (
+                        <div className="flex items-center space-x-2">
+                          <button
+                            disabled
+                            title="Action restricted: Data Managers cannot approve clinical actions. Switch to Pharmacist role."
+                            className="px-4 py-2 bg-gray-100 text-gray-400 rounded-full text-xs font-semibold cursor-not-allowed flex items-center space-x-1.5 border border-gray-200"
+                          >
+                            <Lock className="w-3.5 h-3.5" />
+                            <span>Pharmacist Authorization Required</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleDecision(appr.id, 'APPROVE')}
+                            disabled={processingId === appr.id}
+                            className="ref-pill-btn px-5 py-2.5 bg-[#006B4F] hover:bg-[#004D3A] text-white rounded-full text-xs font-bold shadow-md flex items-center space-x-1.5 transition-all active:scale-95 disabled:opacity-50"
+                          >
+                            <Check className="w-4 h-4 stroke-[3]" />
+                            <span>Approve & Execute</span>
+                          </button>
+                          <button
+                            onClick={() => handleDecision(appr.id, 'REJECT')}
+                            disabled={processingId === appr.id}
+                            className="w-9 h-9 rounded-full bg-[#DC2626]/10 hover:bg-[#DC2626] text-[#DC2626] hover:text-white border border-[#DC2626]/25 flex items-center justify-center transition-all disabled:opacity-50"
+                            title="Reject"
+                          >
+                            <X className="w-4 h-4" />
+                            <span className="sr-only">Reject</span>
+                          </button>
+                        </div>
+                      )
                     ) : (
                       <div className="text-xs text-[#647772] px-3 py-1 rounded-full bg-[#F3FAF7] border border-[#D9E8E3]">
                         Workflow Finalized

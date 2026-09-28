@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Eye, TrendingUp, RefreshCw, Boxes } from 'lucide-react';
+import { Search, Eye, TrendingUp, RefreshCw, Boxes, Edit3, FileSpreadsheet, ShieldCheck, CheckCircle2, AlertTriangle, XCircle, Clock } from 'lucide-react';
 import { InventoryItem } from '../types';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { StockEditModal } from '../components/StockEditModal';
+import { DataManagerModal } from '../components/DataManagerModal';
 
 interface InventoryPageProps {
   onSelectMedicine: (id: number) => void;
@@ -12,12 +15,15 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   onSelectMedicine,
   onNavigateToForecast
 }) => {
+  const { user, role } = useAuth();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [wardFilter, setWardFilter] = useState('');
   const [riskFilter, setRiskFilter] = useState('');
+  const [selectedEditItem, setSelectedEditItem] = useState<InventoryItem | null>(null);
+  const [isDataMgrModalOpen, setIsDataMgrModalOpen] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -52,6 +58,40 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   const categories = Array.from(new Set(items.map((i) => i.category)));
   const wards = Array.from(new Set(items.map((i) => i.ward_name)));
 
+  const renderTrustBadge = (status?: string) => {
+    switch (status) {
+      case 'VALIDATED':
+        return (
+          <span className="inline-flex items-center space-x-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+            <span>VALIDATED</span>
+          </span>
+        );
+      case 'WARNING':
+        return (
+          <span className="inline-flex items-center space-x-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+            <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+            <span>WARNING</span>
+          </span>
+        );
+      case 'REJECTED':
+        return (
+          <span className="inline-flex items-center space-x-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+            <XCircle className="w-2.5 h-2.5 text-rose-600" />
+            <span>REJECTED</span>
+          </span>
+        );
+      case 'PENDING_REVIEW':
+      default:
+        return (
+          <span className="inline-flex items-center space-x-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-300">
+            <Clock className="w-2.5 h-2.5 text-cyan-600" />
+            <span>PENDING</span>
+          </span>
+        );
+    }
+  };
+
   return (
     <div className="p-6 space-y-5 text-[#12332C]">
       {/* Page Header matching reference */}
@@ -71,13 +111,25 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={loadData}
-          className="px-3.5 py-1.5 rounded-full bg-white border border-[#D9E8E3] text-[#12332C] hover:text-[#006B4F] hover:border-[#008F83] text-xs font-semibold shadow-sm flex items-center space-x-1.5 transition-all"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#006B4F]' : ''}`} />
-          <span>Refresh Stock</span>
-        </button>
+        <div className="flex items-center space-x-2.5">
+          {(role === 'DATA_MANAGER' || role === 'ADMIN') && (
+            <button
+              onClick={() => setIsDataMgrModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-full bg-[#006B4F] hover:bg-[#004D3A] text-white text-xs font-bold shadow-sm flex items-center space-x-1.5 transition-all active:scale-95"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Data Governance & CSV Import</span>
+            </button>
+          )}
+
+          <button
+            onClick={loadData}
+            className="px-3.5 py-1.5 rounded-full bg-white border border-[#D9E8E3] text-[#12332C] hover:text-[#006B4F] hover:border-[#008F83] text-xs font-semibold shadow-sm flex items-center space-x-1.5 transition-all"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#006B4F]' : ''}`} />
+            <span>Refresh Stock</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Toolbar matching reference pill styles */}
@@ -166,11 +218,20 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                     className="hover:bg-[#F3FAF7]/70 cursor-pointer transition-colors"
                   >
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-[#12332C]">{item.medicine_name}</div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-semibold text-[#12332C]">{item.medicine_name}</span>
+                        {renderTrustBadge(item.trust_status || 'VALIDATED')}
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-[#E6F4F0] text-[#006B4F] border border-[#006B4F]/20 font-bold uppercase">
+                          {item.data_source || 'SYNTHETIC'}
+                        </span>
+                      </div>
                       <div className="text-[10px] text-[#647772]">
                         {item.generic_name} • <span className="font-mono text-[#006B4F] font-semibold">{item.medicine_code}</span>
                         {item.supplier_name && (
                           <span className="text-[#647772]"> • {item.supplier_name}</span>
+                        )}
+                        {item.last_modified_by && (
+                          <span className="text-emerald-700 font-medium"> • By: {item.last_modified_by}</span>
                         )}
                       </div>
                     </td>
@@ -245,6 +306,23 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                     </td>
 
                     <td className="py-3.5 px-4 text-right space-x-1.5" onClick={(e) => e.stopPropagation()}>
+                      {(role === 'DATA_MANAGER' || role === 'ADMIN') ? (
+                        <button
+                          onClick={() => setSelectedEditItem(item)}
+                          title="Edit Stock Level (Data Manager)"
+                          className="w-7 h-7 rounded-full bg-[#006B4F]/15 hover:bg-[#006B4F] text-[#006B4F] hover:text-white border border-[#006B4F]/30 inline-flex items-center justify-center transition-colors shadow-sm"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          disabled
+                          title="Read-only: Stock editing restricted to Data Manager role"
+                          className="w-7 h-7 rounded-full bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed inline-flex items-center justify-center"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button
                         onClick={() => onSelectMedicine(item.id)}
                         title="View Batches & Drawer"
@@ -267,6 +345,20 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Operational Stock Edit & Governance Modals */}
+      <StockEditModal
+        item={selectedEditItem}
+        isOpen={!!selectedEditItem}
+        onClose={() => setSelectedEditItem(null)}
+        onSuccess={() => loadData()}
+      />
+
+      <DataManagerModal
+        isOpen={isDataMgrModalOpen}
+        onClose={() => setIsDataMgrModalOpen(false)}
+        onSuccess={() => loadData()}
+      />
     </div>
   );
 };

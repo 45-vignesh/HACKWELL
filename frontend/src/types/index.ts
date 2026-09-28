@@ -8,6 +8,9 @@ export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type OrderStatus = 'DRAFT' | 'PROPOSED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'ORDERED' | 'DELIVERED';
 export type TransferStatus = 'PROPOSED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'IN_TRANSIT' | 'COMPLETED';
 
+export type TrustStatus = 'VALIDATED' | 'PENDING_REVIEW' | 'WARNING' | 'REJECTED';
+export type UserRole = 'DATA_MANAGER' | 'PHARMACIST' | 'ADMIN';
+
 export interface InventoryItem {
   id: number;
   medicine_id: number;
@@ -37,6 +40,12 @@ export interface InventoryItem {
   last_restocked_at?: string;
   data_source?: string;
   risk_scenario?: string;
+  trust_status?: TrustStatus;
+  validated_by?: string;
+  validated_at?: string;
+  validation_notes?: string;
+  last_modified_by?: string;
+  last_modified_at?: string;
   supplier_name?: string;
   lead_time_days?: number;
   unit_price_inr?: number;
@@ -254,5 +263,40 @@ export interface UsageHistoryItem {
   quantity_used: number;
   source: string;
   record_count: number;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  role: UserRole;
+  display_name: string;
+  title?: string;
+}
+
+export interface DataAuditRecord {
+  id: number;
+  user: string;
+  role: string;
+  action: string;
+  entity_type: string;
+  record_id?: number;
+  medicine_name?: string;
+  ward_name?: string;
+  old_value?: any;
+  new_value?: any;
+  reason: string;
+  validation_result: string;
+  source: string;
+  timestamp: string;
+}
+
+export interface BatchValidationResult {
+  total_records: number;
+  valid_count: number;
+  warning_count: number;
+  rejected_count: number;
+  valid_rows: any[];
+  warnings: any[];
+  errors: any[];
 }
 

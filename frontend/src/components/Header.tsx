@@ -1,9 +1,11 @@
 import React from 'react';
-import { Search, Sparkles, Zap, RefreshCw, Calendar } from 'lucide-react';
+import { Search, Sparkles, Zap, RefreshCw, Calendar, Shield, User, ChevronDown } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { UserRole } from '../types';
 
 interface HeaderProps {
-  currentRole: string;
-  setCurrentRole: (role: string) => void;
+  currentRole?: UserRole | string;
+  setCurrentRole?: (role: any) => void;
   onOpenAssistant: () => void;
   onRunSimulation: () => void;
   onRefreshData: () => void;
@@ -18,12 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onRefreshData,
   isRefreshing = false
 }) => {
-  const roles = [
-    'Chief Pharmacist (Approver)',
-    'Central Store Manager',
-    'Emergency Charge Nurse',
-    'Hospital Administrator'
-  ];
+  const { user, role, switchRole, setIsLoginModalOpen } = useAuth();
 
   // Today formatted like "28 Sep, 2026"
   const formattedDate = new Date().toLocaleDateString('en-GB', {
@@ -32,9 +29,21 @@ export const Header: React.FC<HeaderProps> = ({
     year: 'numeric'
   });
 
+  const getRoleBadgeStyle = (r: string) => {
+    switch (r) {
+      case 'DATA_MANAGER':
+        return 'bg-[#006B4F] text-white border-emerald-500';
+      case 'ADMIN':
+        return 'bg-[#F4B400] text-[#12332C] border-amber-500';
+      case 'PHARMACIST':
+      default:
+        return 'bg-[#008F83] text-white border-teal-500';
+    }
+  };
+
   return (
     <header className="h-16 px-6 flex items-center justify-between border-b border-[#D9E8E3] bg-white/95 backdrop-blur-md sticky top-0 z-20">
-      {/* Search Input matching reference pill style */}
+      {/* Search Input */}
       <div className="flex-1 max-w-sm">
         <div className="relative">
           <Search className="w-3.5 h-3.5 text-[#647772] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -46,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right Controls matching reference style */}
+      {/* Right Controls */}
       <div className="flex items-center space-x-3">
         {/* Refresh circular button */}
         <button
@@ -73,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span>{formattedDate}</span>
         </div>
 
-        {/* Primary Action Button: Accent Gold CTA matching Reference Image 2 */}
+        {/* Primary Action Button: Accent Gold CTA */}
         <button
           onClick={onRunSimulation}
           className="px-4 py-1.5 rounded-full bg-[#F4B400] hover:bg-[#e0a400] text-[#12332C] text-xs font-bold shadow-sm flex items-center space-x-2 transition-all active:scale-95"
@@ -82,21 +91,24 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Dengue Surge Demo</span>
         </button>
 
-        {/* Role Selector Pill */}
-        <div className="pl-2 border-l border-[#D9E8E3]">
-          <select
-            value={currentRole}
-            onChange={(e) => setCurrentRole(e.target.value)}
-            className="bg-[#F3FAF7] border border-[#D9E8E3] text-[#12332C] text-xs rounded-full px-3 py-1.5 focus:outline-none focus:border-[#006B4F] cursor-pointer"
+        {/* Role Selector & Login Portal Button */}
+        <div className="pl-2 border-l border-[#D9E8E3] flex items-center space-x-2">
+          <button
+            onClick={() => setIsLoginModalOpen(true)}
+            title="Click to Switch User Role or View Security Boundaries"
+            className="flex items-center space-x-2 bg-[#F3FAF7] hover:bg-white border border-[#D9E8E3] hover:border-[#008F83] rounded-full pl-2 pr-3 py-1 transition-all group"
           >
-            {roles.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider border ${getRoleBadgeStyle(role)}`}>
+              {role.replace('_', ' ')}
+            </span>
+            <span className="text-xs font-semibold text-[#12332C] truncate max-w-[120px]">
+              {user?.display_name || 'Dr. Sarah Alston'}
+            </span>
+            <ChevronDown className="w-3.5 h-3.5 text-[#647772] group-hover:text-[#006B4F] transition-colors" />
+          </button>
         </div>
       </div>
     </header>
   );
 };
+

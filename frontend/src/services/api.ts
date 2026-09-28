@@ -22,6 +22,24 @@ const client = axios.create({
   timeout: 30000,
 });
 
+// Attach JWT token and demo role headers to every outgoing request
+client.interceptors.request.use((config) => {
+  const token = localStorage.getItem('medisentinel_token');
+  const role = localStorage.getItem('medisentinel_role');
+  const user = localStorage.getItem('medisentinel_user');
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (role) {
+    config.headers['X-User-Role'] = role;
+  }
+  if (user) {
+    config.headers['X-User-Name'] = user;
+  }
+  return config;
+});
+
 export const api = {
   // Dashboard & System
   getHealth: async () => {
@@ -155,6 +173,48 @@ export const api = {
   },
   triggerMimicImport: async (dataDir?: string) => {
     const res = await client.post('/api/data/import/mimic', null, { params: { data_dir: dataDir } });
+    return res.data;
+  },
+
+  // Authentication & RBAC
+  login: async (payload: { demo_role?: string; username?: string; password?: string }) => {
+    const res = await client.post('/api/auth/login', payload);
+    if (res.data?.token) {
+      localStorage.setItem('medisentinel_token', res.data.token);
+      localStorage.setItem('medisentinel_role', res.data.user.role);
+      localStorage.setItem('medisentinel_user', res.data.user.username);
+      localStorage.setItem('medisentinel_display_name', res.data.user.display_name);
+    }
+    return res.data;
+  },
+  getMe: async () => {
+    const res = await client.get('/api/auth/me');
+    return res.data;
+  },
+  getUsers: async () => {
+    const res = await client.get('/api/auth/users');
+    return res.data;
+  },
+
+  // Operational Data Governance & Validation
+  updateStock: async (id: number, newStock: number, reason: string, overrideWarning: boolean = false) => {
+    const res = await client.put(`/api/inventory/${id}/stock`, {
+      new_stock: newStock,
+      reason,
+      override_warning: overrideWarning
+    });
+    return res.data;
+  },
+  validateBatch: async (rows: any[]) => {
+    const res = await client.post('/api/inventory/validate-batch', { rows });
+    return res.data;
+  },
+  importBatch: async (rows: any[], reason: string = 'Batch CSV Ingestion by Data Manager') => {
+    const res = await client.post('/api/inventory/import-batch', { rows, reason });
+    return res.data;
+  },
+  getDataAuditTrail: async (params?: { user?: string; role?: string; action?: string; validation_result?: string; limit?: number }) => {
+    const res = await client.get('/api/audit-trail/data', { params });
     return res.data;
   }
 };

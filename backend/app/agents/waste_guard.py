@@ -1,7 +1,7 @@
 from datetime import datetime, date, timedelta
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
-from app.models.entities import InventoryBatch, BatchStatus, Medicine, Ward, RiskLevel
+from app.models.entities import InventoryBatch, BatchStatus, Medicine, Ward, RiskLevel, Inventory, TrustStatus
 from app.agents.state import AgentState, AgentStepLog, ExpiryRiskDetail
 from app.policies.policy_engine import PolicyEngine
 
@@ -23,6 +23,15 @@ class WasteGuardAgent:
 
         results = []
         for b in batches:
+            # AI Trust Boundary: Only inspect batches for VALIDATED operational inventory
+            inv = db.query(Inventory).filter(
+                Inventory.medicine_id == b.medicine_id,
+                Inventory.ward_id == b.ward_id,
+                Inventory.trust_status == TrustStatus.VALIDATED
+            ).first()
+            if not inv:
+                continue
+
             med = b.medicine
             ward = b.ward
             days_left = (b.expiry_date - today).days

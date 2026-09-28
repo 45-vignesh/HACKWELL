@@ -3,6 +3,8 @@ import { Sidebar, ActiveTab } from './components/Sidebar';
 import { Header } from './components/Header';
 import { AIAssistantDrawer } from './components/AIAssistantDrawer';
 import { MedicineDetailModal } from './components/MedicineDetailModal';
+import { LoginModal } from './components/LoginModal';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 import { DashboardPage } from './pages/DashboardPage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -21,12 +23,13 @@ import { DataQualityPage } from './pages/DataQualityPage';
 import { DashboardSummary } from './types';
 import { api } from './services/api';
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { role, user, isLoginModalOpen, setIsLoginModalOpen } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [currentRole, setCurrentRole] = useState('Chief Pharmacist (Approver)');
+  const [currentRole, setCurrentRole] = useState(role);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [selectedInventoryId, setSelectedInventoryId] = useState<number | null>(null);
   const [forecastMedicineId, setForecastMedicineId] = useState<number>(1);
@@ -67,14 +70,14 @@ export const App: React.FC = () => {
           setActiveTab={setActiveTab}
           pendingApprovalsCount={summary?.pending_approvals || 0}
           criticalAlertsCount={summary?.critical_stockout_alerts || 0}
-          currentRole={currentRole}
+          currentRole={role}
         />
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F3FAF7]">
           {/* Top Navigation Header */}
           <Header
-            currentRole={currentRole}
+            currentRole={role}
             setCurrentRole={setCurrentRole}
             onOpenAssistant={() => setIsAssistantOpen(true)}
             onRunSimulation={() => setActiveTab('simulation')}
@@ -149,8 +152,22 @@ export const App: React.FC = () => {
           onClose={() => setSelectedInventoryId(null)}
           onNavigateToForecast={handleNavigateToForecast}
         />
+
+        {/* Hospital RBAC Login & Role Switcher Modal */}
+        <LoginModal
+          isOpen={isLoginModalOpen}
+          onClose={() => setIsLoginModalOpen(false)}
+        />
       </div>
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 };
 

@@ -6,7 +6,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 from app.models.entities import (
     DailyUsage, MedicationUsageHistory, Inventory, Medicine, Ward,
-    RiskLevel, ForecastResult
+    RiskLevel, ForecastResult, TrustStatus
 )
 from app.schemas.schemas import ForecastResponse, ForecastPoint
 
@@ -49,7 +49,8 @@ class ForecastService:
 
                 inv = db.query(Inventory).filter(
                     Inventory.medicine_id == medicine_id,
-                    Inventory.ward_id == ward_id
+                    Inventory.ward_id == ward_id,
+                    Inventory.trust_status == TrustStatus.VALIDATED
                 ).first()
                 current_stock = inv.current_stock if inv else 0
 
@@ -84,7 +85,8 @@ class ForecastService:
 
         inv = db.query(Inventory).filter(
             Inventory.medicine_id == medicine_id,
-            Inventory.ward_id == ward_id
+            Inventory.ward_id == ward_id,
+            Inventory.trust_status == TrustStatus.VALIDATED
         ).first()
         current_stock = inv.current_stock if inv else 0
 

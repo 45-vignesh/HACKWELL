@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from app.models.entities import (
     Inventory, Ward, Medicine, StockTransfer, TransferStatus,
-    RiskLevel, CriticalityLevel, DailyUsage
+    RiskLevel, CriticalityLevel, DailyUsage, TrustStatus
 )
 from app.agents.state import AgentState, AgentStepLog, TransferProposal
 from app.policies.policy_engine import PolicyEngine
@@ -27,7 +27,8 @@ class DistributionAgent:
         candidates = []
         other_inventories = db.query(Inventory).filter(
             Inventory.medicine_id == medicine_id,
-            Inventory.ward_id != exclude_ward_id
+            Inventory.ward_id != exclude_ward_id,
+            Inventory.trust_status == TrustStatus.VALIDATED
         ).all()
 
         for inv in other_inventories:

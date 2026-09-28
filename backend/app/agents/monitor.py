@@ -3,7 +3,8 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from app.models.entities import (
     Inventory, InventoryBatch, Medicine, Ward, DailyUsage, MedicationUsageHistory,
-    Alert, AlertType, AlertSeverity, AlertStatus, BatchStatus, CriticalityLevel
+    Alert, AlertType, AlertSeverity, AlertStatus, BatchStatus, CriticalityLevel,
+    TrustStatus
 )
 from app.agents.state import AgentState, AgentStepLog, InventorySnapshot
 from app.config import settings
@@ -13,20 +14,22 @@ class MonitorAgent:
     Monitor Agent: Continuous 24x7 telemetry of stock levels across all wards.
     Detects low stock, critically low thresholds, expiring batches, and consumption anomalies.
     Integrates MIMIC-derived historical consumption patterns with operational inventory.
+    Strictly restricted to VALIDATED operational inventory data.
     """
 
     @staticmethod
     def inspect_inventory(db: Session, medicine_id: int, ward_id: int) -> InventorySnapshot:
         inv = db.query(Inventory).filter(
             Inventory.medicine_id == medicine_id,
-            Inventory.ward_id == ward_id
+            Inventory.ward_id == ward_id,
+            Inventory.trust_status == TrustStatus.VALIDATED
         ).first()
 
         med = db.query(Medicine).filter(Medicine.id == medicine_id).first()
         ward = db.query(Ward).filter(Ward.id == ward_id).first()
 
         if not inv or not med or not ward:
-            raise ValueError("Inventory item, medicine, or ward not found.")
+            raise ValueError(f"Validated inventory item, medicine, or ward not found for med_id={medicine_id}, ward_id={ward_id}.")
 
         # Compute recent 14-day average daily usage from MedicationUsageHistory (MIMIC-derived baseline)
         recent_cutoff = date.today() - timedelta(days=14)
@@ -122,9 +125,9 @@ class MonitorAgent:
                 "stockout_risk": "CRITICAL" if snapshot['status'] == "CRITICAL_LOW" else ("MEDIUM" if snapshot['status'] == "LOW_STOCK" else "LOW")
             }
         else:
-            # Global scan across all items
+            # Global scan across all items (strictly validated operational records only)
             low_items = []
-            all_inv = db.query(Inventory).all()
+            all_inv = db.query(Inventory).filter(Inventory.trust_status == TrustStatus.VALIDATED).all()
             for inv in all_inv:
                 if inv.current_stock <= inv.min_level:
                     low_items.append(inv)

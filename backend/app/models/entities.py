@@ -86,6 +86,17 @@ class ApprovalStatus(str, enum.Enum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
 
+class TrustStatus(str, enum.Enum):
+    VALIDATED = "VALIDATED"
+    PENDING_REVIEW = "PENDING_REVIEW"
+    WARNING = "WARNING"
+    REJECTED = "REJECTED"
+
+class UserRole(str, enum.Enum):
+    DATA_MANAGER = "DATA_MANAGER"
+    PHARMACIST = "PHARMACIST"
+    ADMIN = "ADMIN"
+
 # Models
 class Medicine(Base):
     __tablename__ = "medicines"
@@ -159,6 +170,12 @@ class Inventory(Base):
     days_of_stock = Column(Float, default=15.0)
     data_source = Column(String(50), default="SYNTHETIC")
     risk_scenario = Column(String(50), default="NORMAL")
+    trust_status = Column(Enum(TrustStatus), default=TrustStatus.VALIDATED, nullable=False, index=True)
+    validated_by = Column(String(100), default="SYSTEM_SEED")
+    validated_at = Column(DateTime, default=datetime.utcnow)
+    validation_notes = Column(Text, nullable=True)
+    last_modified_by = Column(String(100), nullable=True)
+    last_modified_at = Column(DateTime, nullable=True)
     last_restocked_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -445,4 +462,33 @@ class DataQualityLog(Base):
     status = Column(String(50), default="COMPLETED")  # COMPLETED, FAILED, PARTIAL
     details = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    role = Column(Enum(UserRole), default=UserRole.DATA_MANAGER, nullable=False, index=True)
+    display_name = Column(String(100), nullable=False)
+    title = Column(String(100), nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class DataAuditTrail(Base):
+    __tablename__ = "data_audit_trail"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user = Column(String(100), nullable=False, index=True)
+    role = Column(String(50), nullable=False, index=True)
+    action = Column(String(100), nullable=False, index=True)
+    entity_type = Column(String(50), default="Inventory", nullable=False)
+    record_id = Column(Integer, nullable=True)
+    medicine_name = Column(String(200), nullable=True)
+    ward_name = Column(String(100), nullable=True)
+    old_value = Column(JSON, nullable=True)
+    new_value = Column(JSON, nullable=True)
+    reason = Column(Text, nullable=False)
+    validation_result = Column(String(50), default="VALIDATED", nullable=False, index=True)
+    source = Column(String(50), default="MANUAL", nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
 

@@ -90,6 +90,12 @@ class InventoryItemResponse(BaseModel):
     last_restocked_at: Optional[datetime] = None
     data_source: str = "SYNTHETIC"
     risk_scenario: Optional[str] = "NORMAL"
+    trust_status: str = "VALIDATED"
+    validated_by: Optional[str] = "SYSTEM_SEED"
+    validated_at: Optional[datetime] = None
+    validation_notes: Optional[str] = None
+    last_modified_by: Optional[str] = None
+    last_modified_at: Optional[datetime] = None
     supplier_name: Optional[str] = None
     lead_time_days: Optional[int] = None
     unit_price_inr: Optional[float] = None
@@ -295,4 +301,68 @@ class MedicationUsageHistoryResponse(BaseModel):
     total_records: int
     usage_source: str
     history: List[MedicationUsageHistoryItem]
+
+# Data Governance, Validation & Auth Schemas
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    role: str
+    display_name: str
+    title: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class LoginRequest(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    demo_role: Optional[str] = None
+
+class LoginResponse(BaseModel):
+    token: str
+    user: UserResponse
+
+class StockUpdateRequest(BaseModel):
+    new_stock: int
+    reason: str
+    override_warning: bool = False
+
+class BatchValidationRow(BaseModel):
+    medicine_code: str
+    medicine_name: Optional[str] = None
+    ward_code: str
+    ward_name: Optional[str] = None
+    current_stock: int
+    min_level: Optional[int] = 20
+    max_level: Optional[int] = 200
+    safety_stock: Optional[int] = 30
+    reorder_point: Optional[int] = 50
+    avg_daily_usage: Optional[float] = 10.0
+    batch_number: Optional[str] = None
+    expiry_date: Optional[str] = None
+    received_date: Optional[str] = None
+
+class BatchValidationResponse(BaseModel):
+    total_records: int
+    valid_count: int
+    warning_count: int
+    rejected_count: int
+    valid_rows: List[Dict[str, Any]] = []
+    warnings: List[Dict[str, Any]] = []
+    errors: List[Dict[str, Any]] = []
+
+class DataAuditTrailResponse(BaseModel):
+    id: int
+    user: str
+    role: str
+    action: str
+    entity_type: str
+    record_id: Optional[int] = None
+    medicine_name: Optional[str] = None
+    ward_name: Optional[str] = None
+    old_value: Optional[Dict[str, Any]] = None
+    new_value: Optional[Dict[str, Any]] = None
+    reason: str
+    validation_result: str
+    source: str
+    timestamp: datetime
+    model_config = ConfigDict(from_attributes=True)
 

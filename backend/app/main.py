@@ -16,7 +16,9 @@ from app.routes import (
     agents,
     simulation,
     chat,
-    data_quality
+    data_quality,
+    auth,
+    audit_trail
 )
 
 # Configure logging
@@ -63,6 +65,8 @@ app.include_router(agents.router)
 app.include_router(simulation.router)
 app.include_router(chat.router)
 app.include_router(data_quality.router)
+app.include_router(auth.router)
+app.include_router(audit_trail.router)
 
 if __name__ == "__main__":
     import uvicorn

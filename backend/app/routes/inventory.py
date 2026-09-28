@@ -1,14 +1,20 @@
-from datetime import date, timedelta
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from datetime import datetime, date, timedelta
+from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
 from app.models.entities import (
     Medicine, Inventory, InventoryBatch, Ward, Department,
-    DailyUsage, MedicationUsageHistory, SupplierMedicine, RiskLevel, BatchStatus
+    DailyUsage, MedicationUsageHistory, SupplierMedicine, RiskLevel, BatchStatus,
+    TrustStatus, DataAuditTrail
 )
-from app.schemas.schemas import InventoryItemResponse, MedicineResponse, BatchResponse
+from app.schemas.schemas import (
+    InventoryItemResponse, MedicineResponse, BatchResponse,
+    StockUpdateRequest, BatchValidationResponse
+)
+from app.services.inventory_validator import InventoryValidator
+from app.services.auth_service import require_role, get_current_user
 
 router = APIRouter(prefix="/api/inventory", tags=["Inventory"])
 
@@ -19,6 +25,7 @@ def get_inventory(
     criticality: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     risk_level: Optional[str] = Query(None),
+    trust_status: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     query = db.query(Inventory).join(Medicine).join(Ward)
@@ -29,6 +36,8 @@ def get_inventory(
         query = query.filter(Medicine.category == category)
     if criticality:
         query = query.filter(Medicine.criticality == criticality)
+    if trust_status:
+        query = query.filter(Inventory.trust_status == trust_status)
     if search:
         s = f"%{search}%"
         query = query.filter((Medicine.name.ilike(s)) | (Medicine.generic_name.ilike(s)) | (Medicine.code.ilike(s)))
@@ -121,6 +130,12 @@ def get_inventory(
             last_restocked_at=item.last_restocked_at,
             data_source=item.data_source or "SYNTHETIC",
             risk_scenario=item.risk_scenario or "NORMAL",
+            trust_status=item.trust_status.value if hasattr(item.trust_status, 'value') else (item.trust_status or "VALIDATED"),
+            validated_by=item.validated_by or "SYSTEM_SEED",
+            validated_at=item.validated_at,
+            validation_notes=item.validation_notes,
+            last_modified_by=item.last_modified_by,
+            last_modified_at=item.last_modified_at,
             supplier_name=supplier_name,
             lead_time_days=lead_time,
             unit_price_inr=unit_price
@@ -248,9 +263,233 @@ def get_inventory_detail(id: int, db: Session = Depends(get_db)):
         "days_of_stock": item.days_of_stock or 0.0,
         "data_source": item.data_source or "SYNTHETIC",
         "risk_scenario": item.risk_scenario or "NORMAL",
+        "trust_status": item.trust_status.value if hasattr(item.trust_status, 'value') else (item.trust_status or "VALIDATED"),
+        "validated_by": item.validated_by or "SYSTEM_SEED",
+        "validated_at": item.validated_at.isoformat() if item.validated_at else None,
+        "validation_notes": item.validation_notes,
+        "last_modified_by": item.last_modified_by,
+        "last_modified_at": item.last_modified_at.isoformat() if item.last_modified_at else None,
         "batches": batch_list,
         "usage_history": usage_history,
         "usage_source": usage_source,
         "suppliers": suppliers_list,
         "hospital_distribution": distribution_list
+    }
+
+@router.put("/{id}/stock")
+def update_inventory_stock(
+    id: int,
+    payload: StockUpdateRequest,
+    current_user: dict = Depends(require_role(["DATA_MANAGER", "ADMIN"])),
+    db: Session = Depends(get_db)
+):
+    """
+    Controlled manual stock update.
+    Requires DATA_MANAGER or ADMIN role.
+    Applies strict validation, abnormal jump warnings, and records an immutable audit log.
+    """
+    inv = db.query(Inventory).filter(Inventory.id == id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+
+    old_stock = inv.current_stock
+    med_name = inv.medicine.name if inv.medicine else "Unknown"
+    ward_name = inv.ward.name if inv.ward else "Unknown"
+
+    # Run validation engine
+    val_res = InventoryValidator.validate_stock_update(
+        db=db,
+        inventory_id=id,
+        new_stock=payload.new_stock,
+        reason=payload.reason,
+        override_warning=payload.override_warning
+    )
+
+    now = datetime.utcnow()
+
+    # If rejected (e.g. negative stock or missing reason)
+    if not val_res.is_valid:
+        # Record rejected audit trail
+        rejected_audit = DataAuditTrail(
+            user=current_user["username"],
+            role=current_user["role"],
+            action="UPDATE_STOCK",
+            entity_type="Inventory",
+            record_id=id,
+            medicine_name=med_name,
+            ward_name=ward_name,
+            old_value={"current_stock": old_stock},
+            new_value={"current_stock": payload.new_stock},
+            reason=payload.reason or "Missing reason",
+            validation_result="REJECTED",
+            source="MANUAL",
+            timestamp=now
+        )
+        db.add(rejected_audit)
+        db.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=val_res.message + (f" Errors: {', '.join(val_res.errors)}" if val_res.errors else "")
+        )
+
+    # If warning detected and override not explicitly affirmed
+    if val_res.status == TrustStatus.WARNING and not payload.override_warning:
+        return {
+            "status": "WARNING",
+            "message": val_res.message,
+            "warnings": val_res.warnings,
+            "requires_override": True,
+            "current_stock": old_stock,
+            "proposed_stock": payload.new_stock
+        }
+
+    # Commit validated update
+    inv.current_stock = payload.new_stock
+    inv.trust_status = TrustStatus.VALIDATED
+    inv.data_source = "MANUAL"
+    inv.last_modified_by = current_user["username"]
+    inv.last_modified_at = now
+    inv.validated_by = current_user["username"]
+    inv.validated_at = now
+    inv.validation_notes = payload.reason
+
+    # Add audit log
+    audit_entry = DataAuditTrail(
+        user=current_user["username"],
+        role=current_user["role"],
+        action="UPDATE_STOCK",
+        entity_type="Inventory",
+        record_id=id,
+        medicine_name=med_name,
+        ward_name=ward_name,
+        old_value={"current_stock": old_stock},
+        new_value={"current_stock": payload.new_stock},
+        reason=payload.reason,
+        validation_result="VALIDATED",
+        source="MANUAL",
+        timestamp=now
+    )
+    db.add(audit_entry)
+    db.commit()
+    db.refresh(inv)
+
+    return {
+        "status": "SUCCESS",
+        "message": f"Successfully updated stock for {med_name} in {ward_name} from {old_stock} to {payload.new_stock}.",
+        "inventory_id": inv.id,
+        "new_stock": inv.current_stock,
+        "trust_status": inv.trust_status.value,
+        "data_source": inv.data_source,
+        "last_modified_by": inv.last_modified_by,
+        "last_modified_at": inv.last_modified_at.isoformat()
+    }
+
+@router.post("/validate-batch", response_model=BatchValidationResponse)
+def validate_batch(
+    payload: Dict[str, Any],
+    current_user: dict = Depends(require_role(["DATA_MANAGER", "ADMIN"])),
+    db: Session = Depends(get_db)
+):
+    """
+    Validates a batch of CSV rows without committing them to the database.
+    Returns valid count, warning count, rejected count, and detailed error messages.
+    """
+    rows = payload.get("rows", [])
+    if not rows:
+        raise HTTPException(status_code=400, detail="No rows provided in batch payload.")
+
+    report = InventoryValidator.validate_csv_batch(db, rows)
+    return report
+
+@router.post("/import-batch")
+def import_batch(
+    payload: Dict[str, Any],
+    current_user: dict = Depends(require_role(["DATA_MANAGER", "ADMIN"])),
+    db: Session = Depends(get_db)
+):
+    """
+    Commits ONLY validated rows from an uploaded CSV batch into operational inventory.
+    Rejects or quarantines invalid records, and logs an immutable audit trail.
+    """
+    rows = payload.get("rows", [])
+    reason = payload.get("reason", "Batch CSV Ingestion by Data Manager")
+    if not rows:
+        raise HTTPException(status_code=400, detail="No rows provided for import.")
+
+    report = InventoryValidator.validate_csv_batch(db, rows)
+    valid_rows = report["valid_rows"]
+    now = datetime.utcnow()
+
+    imported_count = 0
+    for r in valid_rows:
+        med_id = r["medicine_id"]
+        ward_id = r["ward_id"]
+        if not med_id or not ward_id:
+            continue
+
+        inv = db.query(Inventory).filter(
+            Inventory.medicine_id == med_id,
+            Inventory.ward_id == ward_id
+        ).first()
+
+        old_stock = inv.current_stock if inv else 0
+
+        if inv:
+            inv.current_stock = r["current_stock"]
+            inv.trust_status = TrustStatus.VALIDATED
+            inv.data_source = "MANUAL"
+            inv.last_modified_by = current_user["username"]
+            inv.last_modified_at = now
+            inv.validated_by = current_user["username"]
+            inv.validated_at = now
+            inv.validation_notes = reason
+        else:
+            inv = Inventory(
+                medicine_id=med_id,
+                ward_id=ward_id,
+                current_stock=r["current_stock"],
+                min_level=r.get("min_level", 20),
+                max_level=r.get("max_level", 200),
+                safety_stock=r.get("safety_stock", 30),
+                reorder_point=r.get("reorder_point", 50),
+                avg_daily_usage=r.get("avg_daily_usage", 10.0),
+                data_source="MANUAL",
+                trust_status=TrustStatus.VALIDATED,
+                validated_by=current_user["username"],
+                validated_at=now,
+                validation_notes=reason,
+                last_modified_by=current_user["username"],
+                last_modified_at=now
+            )
+            db.add(inv)
+
+        # Audit trail
+        audit = DataAuditTrail(
+            user=current_user["username"],
+            role=current_user["role"],
+            action="CSV_IMPORT",
+            entity_type="Inventory",
+            record_id=inv.id if inv else None,
+            medicine_name=r.get("medicine_name", "Medicine"),
+            ward_name=r.get("ward_name", "Ward"),
+            old_value={"current_stock": old_stock},
+            new_value={"current_stock": r["current_stock"]},
+            reason=reason,
+            validation_result="VALIDATED",
+            source="MANUAL",
+            timestamp=now
+        )
+        db.add(audit)
+        imported_count += 1
+
+    db.commit()
+
+    return {
+        "status": "SUCCESS",
+        "total_submitted": report["total_records"],
+        "imported_count": imported_count,
+        "rejected_count": report["rejected_count"],
+        "warning_count": report["warning_count"],
+        "rejected_errors": report["errors"]
     }

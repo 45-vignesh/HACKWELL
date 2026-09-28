@@ -5,9 +5,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.entities import (
     Approval, ApprovalStatus, ActionType, StockTransfer,
-    PurchaseOrder, TransferStatus, OrderStatus, Inventory, AuditLog
+    PurchaseOrder, TransferStatus, OrderStatus, Inventory, AuditLog, DataAuditTrail
 )
 from app.schemas.schemas import ApprovalResponse, ApprovalActionRequest
+from app.services.auth_service import require_role
 
 router = APIRouter(prefix="/api/approvals", tags=["Approvals"])
 
@@ -63,6 +64,7 @@ def get_approvals(
 def decide_approval(
     id: int,
     payload: ApprovalActionRequest,
+    current_user: dict = Depends(require_role(["PHARMACIST", "ADMIN"])),
     db: Session = Depends(get_db)
 ):
     appr = db.query(Approval).filter(Approval.id == id).first()
@@ -73,7 +75,8 @@ def decide_approval(
         raise HTTPException(status_code=400, detail=f"Approval request is already {appr.status.value}")
 
     now = datetime.utcnow()
-    appr.decision_by = payload.decision_by
+    decision_actor = current_user.get("display_name", payload.decision_by or current_user["username"])
+    appr.decision_by = decision_actor
     appr.decision_reason = payload.reason
     appr.decided_at = now
 
@@ -120,7 +123,7 @@ def decide_approval(
     # Audit log
     db.add(AuditLog(
         event_type="PHARMACIST_GOVERNANCE_DECISION",
-        actor=payload.decision_by,
+        actor=decision_actor,
         entity_type="Approval",
         entity_id=str(appr.id),
         action=f"DECISION_{payload.decision}",
@@ -132,10 +135,24 @@ def decide_approval(
         }
     ))
 
+    # Data Governance Audit Trail
+    db.add(DataAuditTrail(
+        user=current_user["username"],
+        role=current_user["role"],
+        action=f"DECISION_{payload.decision}",
+        entity_type=appr.action_type.value,
+        record_id=appr.id,
+        medicine_name=appr.medicine.name if appr.medicine else None,
+        reason=payload.reason,
+        validation_result="VALIDATED",
+        source="MANUAL",
+        timestamp=now
+    ))
+
     db.commit()
 
     return {
         "status": "success",
         "decision": payload.decision,
-        "message": f"Action {appr.action_type.value} was successfully {payload.decision.lower()}d by {payload.decision_by}."
+        "message": f"Action {appr.action_type.value} was successfully {payload.decision.lower()}d by {decision_actor}."
     }
