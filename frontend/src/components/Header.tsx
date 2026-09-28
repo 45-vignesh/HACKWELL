@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles, Zap, RefreshCw, Calendar, Shield, User, ChevronDown, LogOut, ArrowLeft } from 'lucide-react';
+import { Search, Sparkles, Zap, RefreshCw, Calendar, Shield, User, ChevronDown, LogOut, ArrowLeft, Building2, MapPin } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types';
 
@@ -105,19 +105,43 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Dengue Surge Simulation</span>
         </button>
 
+        {/* Organizational Context: Company & Branch Scope */}
+        <div className="hidden xl:flex items-center space-x-2 bg-[#F3FAF7] border border-[#D9E8E3] rounded-full px-3 py-1.5 text-xs text-[#12332C]">
+          <div className="flex items-center space-x-1">
+            <Building2 className="w-3.5 h-3.5 text-[#006B4F]" />
+            <span className="text-[#647772] font-normal">Company:</span>
+            <span className="font-bold text-[#006B4F]">{user?.company_name || 'ABC Healthcare'}</span>
+          </div>
+          {role !== 'ADMIN' && (
+            <>
+              <span className="text-[#D9E8E3]">|</span>
+              <div className="flex items-center space-x-1">
+                <MapPin className="w-3.5 h-3.5 text-[#008F83]" />
+                <span className="text-[#647772] font-normal">Branch:</span>
+                <span className="font-bold text-[#008F83]">{user?.branch_name || 'Chennai Main Hospital'}</span>
+              </div>
+            </>
+          )}
+        </div>
+
         {/* Role Selector & Login Portal Button */}
         <div className="pl-2 border-l border-[#D9E8E3] flex items-center space-x-2">
           <button
             onClick={() => setIsLoginModalOpen(true)}
-            title="Click to Switch User Role or View Security Boundaries"
+            title={`Authenticated Scope:\nUser: ${user?.display_name || 'Liam Patel'}\nRole: ${role}\nCompany: ${user?.company_name || 'ABC Healthcare'}${role !== 'ADMIN' ? `\nBranch: ${user?.branch_name || 'Chennai Main Hospital'}` : ''}`}
             className="flex items-center space-x-2 bg-[#F3FAF7] hover:bg-white border border-[#D9E8E3] hover:border-[#008F83] rounded-full pl-2 pr-3 py-1 transition-all group"
           >
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider border ${getRoleBadgeStyle(role)}`}>
               {role.replace('_', ' ')}
             </span>
-            <span className="text-xs font-semibold text-[#12332C] truncate max-w-[120px]">
-              {user?.display_name || 'Dr. Sarah Alston'}
-            </span>
+            <div className="flex flex-col text-left">
+              <span className="text-xs font-semibold text-[#12332C] truncate max-w-[130px]">
+                {user?.display_name || 'Dr. Sarah Alston'}
+              </span>
+              <span className="text-[9px] text-[#647772] truncate max-w-[130px] font-medium leading-none xl:hidden">
+                {user?.company_name || 'ABC Healthcare'}{role !== 'ADMIN' && user?.branch_name ? ` • ${user.branch_name}` : ''}
+              </span>
+            </div>
             <ChevronDown className="w-3.5 h-3.5 text-[#647772] group-hover:text-[#006B4F] transition-colors" />
           </button>
 

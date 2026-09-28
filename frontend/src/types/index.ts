@@ -265,12 +265,33 @@ export interface UsageHistoryItem {
   record_count: number;
 }
 
+export interface Branch {
+  id: number;
+  company_id: number;
+  name: string;
+  code: string;
+  location?: string;
+  status: string;
+}
+
+export interface Company {
+  id: number;
+  name: string;
+  code: string;
+  status: string;
+  branches?: Branch[];
+}
+
 export interface User {
   id: number;
   username: string;
   role: UserRole;
   display_name: string;
   title?: string;
+  company_id?: number;
+  company_name?: string;
+  branch_id?: number;
+  branch_name?: string;
 }
 
 export interface DataAuditRecord {

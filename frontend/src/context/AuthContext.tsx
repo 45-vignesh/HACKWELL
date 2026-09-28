@@ -21,7 +21,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   authPortalView: AuthPortalView;
   setAuthPortalView: (view: AuthPortalView) => void;
-  loginWithCredentials: (username: string, password: string, role?: string) => Promise<any>;
+  loginWithCredentials: (username: string, password: string, role?: string, companyId?: number, branchId?: number) => Promise<any>;
   registerAccount: (payload: {
     full_name: string;
     username: string;
@@ -29,8 +29,10 @@ interface AuthContextType {
     password: string;
     confirm_password: string;
     role: string;
+    company_id?: number;
+    branch_id?: number;
   }) => Promise<{ message: string; username: string; role: string }>;
-  switchRole: (newRole: UserRole) => Promise<void>;
+  switchRole: (newRole: UserRole, companyId?: number, branchId?: number) => Promise<void>;
   logout: () => void;
   isLoginModalOpen: boolean;
   setIsLoginModalOpen: (open: boolean) => void;
@@ -70,13 +72,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const params = new URLSearchParams(window.location.search);
       const pr = params.get('preview_role') as UserRole;
       if (pr) {
+        const pc = params.get('preview_company') || 'ABC Healthcare';
+        const pb = params.get('preview_branch') || (pr !== 'ADMIN' ? 'Chennai Main Hospital' : undefined);
         setRole(pr);
         setUser({
           id: pr === 'DATA_MANAGER' ? 1 : (pr === 'ADMIN' ? 3 : 2),
           username: pr.toLowerCase(),
           role: pr,
           display_name: pr === 'DATA_MANAGER' ? 'Liam Patel' : (pr === 'ADMIN' ? 'Marcus Vance' : 'Dr. Sarah Alston'),
-          title: pr === 'DATA_MANAGER' ? 'Inventory Data Specialist' : (pr === 'ADMIN' ? 'Hospital Systems Administrator' : 'Chief Pharmacist & Clinical Approver')
+          title: pr === 'DATA_MANAGER' ? 'Inventory Data Specialist' : (pr === 'ADMIN' ? 'Hospital Systems Administrator' : 'Chief Pharmacist & Clinical Approver'),
+          company_id: 1,
+          company_name: pc,
+          branch_id: pr !== 'ADMIN' ? 1 : undefined,
+          branch_name: pb
         });
         setToken('preview_session_token');
         return;
@@ -87,6 +95,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedRole = localStorage.getItem('medisentinel_role') as UserRole;
     const savedUser = localStorage.getItem('medisentinel_user');
     const savedName = localStorage.getItem('medisentinel_display_name');
+    const savedCompId = localStorage.getItem('medisentinel_company_id');
+    const savedCompName = localStorage.getItem('medisentinel_company_name');
+    const savedBranchId = localStorage.getItem('medisentinel_branch_id');
+    const savedBranchName = localStorage.getItem('medisentinel_branch_name');
 
     if (savedToken && savedRole) {
       setRole(savedRole);
@@ -95,14 +107,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         username: savedUser || (savedRole.toLowerCase()),
         role: savedRole,
         display_name: savedName || (savedRole === 'DATA_MANAGER' ? 'Liam Patel' : (savedRole === 'ADMIN' ? 'Marcus Vance' : 'Dr. Sarah Alston')),
-        title: savedRole === 'DATA_MANAGER' ? 'Inventory Data Specialist' : (savedRole === 'ADMIN' ? 'Hospital Systems Administrator' : 'Chief Pharmacist & Clinical Approver')
+        title: savedRole === 'DATA_MANAGER' ? 'Inventory Data Specialist' : (savedRole === 'ADMIN' ? 'Hospital Systems Administrator' : 'Chief Pharmacist & Clinical Approver'),
+        company_id: savedCompId ? Number(savedCompId) : 1,
+        company_name: savedCompName || 'ABC Healthcare',
+        branch_id: savedBranchId ? Number(savedBranchId) : (savedRole !== 'ADMIN' ? 1 : undefined),
+        branch_name: savedBranchName || (savedRole !== 'ADMIN' ? 'Chennai Main Hospital' : undefined)
       });
       setToken(savedToken);
     }
   }, []);
 
-  const loginWithCredentials = async (username: string, password: string, portalRole?: string) => {
-    const res = await api.login({ username, password, role: portalRole });
+  const loginWithCredentials = async (
+    username: string,
+    password: string,
+    portalRole?: string,
+    companyId?: number,
+    branchId?: number
+  ) => {
+    const res = await api.login({
+      username,
+      password,
+      role: portalRole,
+      company_id: companyId,
+      branch_id: branchId
+    });
     if (res?.user && res?.token) {
       setUser(res.user);
       setRole(res.user.role);
@@ -120,13 +148,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     password: string;
     confirm_password: string;
     role: string;
+    company_id?: number;
+    branch_id?: number;
   }) => {
     return await api.register(payload);
   };
 
-  const switchRole = async (newRole: UserRole) => {
+  const switchRole = async (newRole: UserRole, companyId: number = 1, branchId?: number) => {
     try {
-      const res = await api.login({ demo_role: newRole });
+      const res = await api.login({
+        demo_role: newRole,
+        company_id: companyId,
+        branch_id: newRole !== 'ADMIN' ? (branchId || 1) : undefined
+      });
       if (res?.user && res?.token) {
         setUser(res.user);
         setRole(res.user.role);
@@ -144,6 +178,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('medisentinel_role');
     localStorage.removeItem('medisentinel_user');
     localStorage.removeItem('medisentinel_display_name');
+    localStorage.removeItem('medisentinel_company_id');
+    localStorage.removeItem('medisentinel_company_name');
+    localStorage.removeItem('medisentinel_branch_id');
+    localStorage.removeItem('medisentinel_branch_name');
     setUser(null);
     setToken(null);
     setAuthPortalView('selection');

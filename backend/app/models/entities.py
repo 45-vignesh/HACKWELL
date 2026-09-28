@@ -463,6 +463,32 @@ class DataQualityLog(Base):
     details = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class Company(Base):
+    __tablename__ = "companies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(150), nullable=False)
+    code = Column(String(50), unique=True, index=True, nullable=False)
+    status = Column(String(20), default="ACTIVE", nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    branches = relationship("Branch", back_populates="company", cascade="all, delete-orphan")
+    users = relationship("User", back_populates="company")
+
+class Branch(Base):
+    __tablename__ = "branches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
+    name = Column(String(150), nullable=False)
+    code = Column(String(50), nullable=False, index=True)
+    location = Column(String(150), nullable=True)
+    status = Column(String(20), default="ACTIVE", nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    company = relationship("Company", back_populates="branches")
+    users = relationship("User", back_populates="branch")
+
 class User(Base):
     __tablename__ = "users"
 
@@ -473,8 +499,13 @@ class User(Base):
     title = Column(String(100), nullable=True)
     email = Column(String(150), nullable=True, index=True)
     password_hash = Column(String(255), nullable=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    company = relationship("Company", back_populates="users")
+    branch = relationship("Branch", back_populates="users")
 
 class DataAuditTrail(Base):
     __tablename__ = "data_audit_trail"

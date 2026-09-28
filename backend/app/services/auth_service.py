@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 from fastapi import HTTPException, Header, Depends, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.entities import User, UserRole
+from app.models.entities import User, UserRole, Company, Branch
 
 AUTH_SECRET = "medisentinel-data-governance-secret-key-2026"
 
@@ -31,33 +31,78 @@ def verify_password(plain_password: str, stored_hash: str) -> bool:
         return False
 
 
-# Demo Seed Users with Official Passwords
+# Demo Seed Users with Official Passwords and Organizational Scope
 DEFAULT_DEMO_USERS = [
     {
         "username": "data_manager",
         "role": UserRole.DATA_MANAGER.value,
         "display_name": "Liam Patel",
         "title": "Inventory Data Specialist",
-        "password": "DataManager@123"
+        "password": "DataManager@123",
+        "company_id": 1,
+        "branch_id": 1
     },
     {
         "username": "pharmacist",
         "role": UserRole.PHARMACIST.value,
         "display_name": "Dr. Sarah Alston",
         "title": "Chief Pharmacist & Clinical Approver",
-        "password": "Pharmacist@123"
+        "password": "Pharmacist@123",
+        "company_id": 1,
+        "branch_id": 1
     },
     {
         "username": "admin",
         "role": UserRole.ADMIN.value,
         "display_name": "Marcus Vance",
         "title": "Hospital Systems Administrator",
-        "password": "Admin@123"
+        "password": "Admin@123",
+        "company_id": 1,
+        "branch_id": None
     }
 ]
 
+def ensure_seed_companies_and_branches(db: Session):
+    """Seed prototype companies and branches in the database if they do not exist."""
+    c1 = db.query(Company).filter(Company.code == "ABC-HC").first()
+    if not c1:
+        c1 = Company(id=1, name="ABC Healthcare", code="ABC-HC", status="ACTIVE")
+        db.add(c1)
+        db.flush()
+
+    c2 = db.query(Company).filter(Company.code == "APEX-GH").first()
+    if not c2:
+        c2 = Company(id=2, name="Apex Global Health", code="APEX-GH", status="ACTIVE")
+        db.add(c2)
+        db.flush()
+
+    branches_c1 = [
+        ("Chennai Main Hospital", "ABC-CHN-MAIN", "Central Chennai"),
+        ("Anna Nagar Branch", "ABC-ANNA-NGR", "Anna Nagar, Chennai"),
+        ("Tambaram Branch", "ABC-TMB-BR", "Tambaram, Chennai")
+    ]
+    for name, code, loc in branches_c1:
+        if not db.query(Branch).filter(Branch.code == code).first():
+            b = Branch(company_id=c1.id, name=name, code=code, location=loc, status="ACTIVE")
+            db.add(b)
+
+    branches_c2 = [
+        ("Apex City Medical Center", "APEX-CITY-01", "Metro Hub, Chennai"),
+        ("Apex North Outpost", "APEX-NORTH-02", "North Corridor, Chennai")
+    ]
+    for name, code, loc in branches_c2:
+        if not db.query(Branch).filter(Branch.code == code).first():
+            b = Branch(company_id=c2.id, name=name, code=code, location=loc, status="ACTIVE")
+            db.add(b)
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
 def ensure_seed_users(db: Session):
     """Seed prototype users in the database if they do not exist."""
+    ensure_seed_companies_and_branches(db)
     for u in DEFAULT_DEMO_USERS:
         exists = db.query(User).filter(User.username == u["username"]).first()
         if not exists:
@@ -66,21 +111,41 @@ def ensure_seed_users(db: Session):
                 role=UserRole(u["role"]),
                 display_name=u["display_name"],
                 title=u["title"],
+                company_id=u.get("company_id", 1),
+                branch_id=u.get("branch_id"),
                 active=True
             )
             db.add(new_user)
+        else:
+            # Sync company and branch if missing
+            if not exists.company_id and u.get("company_id"):
+                exists.company_id = u["company_id"]
+                exists.branch_id = u.get("branch_id")
     try:
         db.commit()
     except Exception:
         db.rollback()
 
-def create_access_token(username: str, role: str, display_name: str, title: Optional[str] = None) -> str:
+def create_access_token(
+    username: str,
+    role: str,
+    display_name: str,
+    title: Optional[str] = None,
+    company_id: Optional[int] = None,
+    company_name: Optional[str] = None,
+    branch_id: Optional[int] = None,
+    branch_name: Optional[str] = None
+) -> str:
     """Generate a lightweight HMAC-signed JWT-like token for hackathon prototype."""
     payload = {
         "sub": username,
         "role": role,
         "display_name": display_name,
         "title": title or "",
+        "company_id": company_id,
+        "company_name": company_name,
+        "branch_id": branch_id,
+        "branch_name": branch_name,
         "exp": int(time.time()) + 86400 * 7  # 7 days
     }
     payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode()
@@ -126,7 +191,11 @@ def get_current_user(
                 "username": payload["sub"],
                 "role": payload["role"],
                 "display_name": payload.get("display_name", payload["sub"]),
-                "title": payload.get("title", "")
+                "title": payload.get("title", ""),
+                "company_id": payload.get("company_id", 1),
+                "company_name": payload.get("company_name", "ABC Healthcare"),
+                "branch_id": payload.get("branch_id", 1 if payload["role"] != "ADMIN" else None),
+                "branch_name": payload.get("branch_name", "Chennai Main Hospital" if payload["role"] != "ADMIN" else None),
             }
 
     # 2. Prototype Demo Headers
@@ -138,7 +207,11 @@ def get_current_user(
                 "username": x_user_name or (matched_user["username"] if matched_user else "user"),
                 "role": role_upper,
                 "display_name": matched_user["display_name"] if matched_user else (x_user_name or "Hospital User"),
-                "title": matched_user["title"] if matched_user else role_upper
+                "title": matched_user["title"] if matched_user else role_upper,
+                "company_id": 1,
+                "company_name": "ABC Healthcare",
+                "branch_id": 1 if role_upper != "ADMIN" else None,
+                "branch_name": "Chennai Main Hospital" if role_upper != "ADMIN" else None
             }
 
     # 3. Default prototype user: Pharmacist
@@ -147,7 +220,11 @@ def get_current_user(
         "username": default_user["username"],
         "role": default_user["role"],
         "display_name": default_user["display_name"],
-        "title": default_user["title"]
+        "title": default_user["title"],
+        "company_id": 1,
+        "company_name": "ABC Healthcare",
+        "branch_id": 1,
+        "branch_name": "Chennai Main Hospital"
     }
 
 def require_role(allowed_roles: List[str]):

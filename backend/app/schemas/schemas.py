@@ -302,6 +302,24 @@ class MedicationUsageHistoryResponse(BaseModel):
     usage_source: str
     history: List[MedicationUsageHistoryItem]
 
+# Organization & Hierarchy Schemas
+class BranchResponse(BaseModel):
+    id: int
+    company_id: int
+    name: str
+    code: str
+    location: Optional[str] = None
+    status: str = "ACTIVE"
+    model_config = ConfigDict(from_attributes=True)
+
+class CompanyResponse(BaseModel):
+    id: int
+    name: str
+    code: str
+    status: str = "ACTIVE"
+    branches: Optional[List[BranchResponse]] = None
+    model_config = ConfigDict(from_attributes=True)
+
 # Data Governance, Validation & Auth Schemas
 class UserResponse(BaseModel):
     id: int
@@ -309,6 +327,10 @@ class UserResponse(BaseModel):
     role: str
     display_name: str
     title: Optional[str] = None
+    company_id: Optional[int] = None
+    company_name: Optional[str] = None
+    branch_id: Optional[int] = None
+    branch_name: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class LoginRequest(BaseModel):
@@ -316,6 +338,8 @@ class LoginRequest(BaseModel):
     password: Optional[str] = None
     demo_role: Optional[str] = None
     role: Optional[str] = None
+    company_id: Optional[int] = None
+    branch_id: Optional[int] = None
 
 class LoginResponse(BaseModel):
     token: str
@@ -328,11 +352,15 @@ class RegisterRequest(BaseModel):
     password: str
     confirm_password: str
     role: str
+    company_id: Optional[int] = None
+    branch_id: Optional[int] = None
 
 class RegisterResponse(BaseModel):
     message: str = "Registration successful. You can now sign in."
     username: str
     role: str
+    company_id: Optional[int] = None
+    branch_id: Optional[int] = None
 
 
 class StockUpdateRequest(BaseModel):

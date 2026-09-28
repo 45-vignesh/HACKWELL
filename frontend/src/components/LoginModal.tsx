@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { UserRole } from '../types';
-import { ShieldCheck, UserCheck, Stethoscope, Lock, CheckCircle2, ArrowRight, X } from 'lucide-react';
+import { UserRole, Company, Branch } from '../types';
+import { ShieldCheck, UserCheck, Stethoscope, Lock, CheckCircle2, ArrowRight, X, Building2, MapPin } from 'lucide-react';
+import { api } from '../services/api';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -11,14 +12,42 @@ interface LoginModalProps {
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const { user, role, switchRole } = useAuth();
   const [selectedRole, setSelectedRole] = useState<UserRole>(role);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companyId, setCompanyId] = useState<number>(user?.company_id || 1);
+  const [branchId, setBranchId] = useState<number>(user?.branch_id || 1);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (isOpen) {
+      const loadOrgs = async () => {
+        try {
+          const data = await api.getCompanies();
+          setCompanies(data);
+          if (data.length > 0) {
+            const currentComp = data.find((c) => c.id === (user?.company_id || 1)) || data[0];
+            setCompanyId(currentComp.id);
+            if (currentComp.branches && currentComp.branches.length > 0) {
+              const currentBranch = currentComp.branches.find((b) => b.id === (user?.branch_id || 1)) || currentComp.branches[0];
+              setBranchId(currentBranch.id);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load companies in LoginModal:', err);
+        }
+      };
+      loadOrgs();
+    }
+  }, [isOpen, user]);
+
   if (!isOpen) return null;
+
+  const currentCompObj = companies.find((c) => c.id === companyId);
+  const availableBranches = currentCompObj?.branches || [];
 
   const handleSelectRole = async (targetRole: UserRole) => {
     setSelectedRole(targetRole);
     setLoading(true);
-    await switchRole(targetRole);
+    await switchRole(targetRole, companyId, targetRole !== 'ADMIN' ? branchId : undefined);
     setLoading(false);
     onClose();
   };
@@ -27,11 +56,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     {
       role: 'DATA_MANAGER' as UserRole,
       title: 'Data / Inventory Manager',
-      name: 'Alex Chen',
+      name: 'Liam Patel',
       icon: UserCheck,
       color: 'border-emerald-500 bg-emerald-50/50',
       badge: 'bg-[#006B4F] text-white',
-      desc: 'Enters, imports, validates, and reconciles ward inventory. Manages batch CSV imports.',
+      desc: 'Enters, imports, validates, and reconciles ward inventory for the selected company and branch facility.',
       permissions: [
         'Manual stock entry & corrections',
         'Batch CSV validation & upload',
@@ -47,7 +76,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
       icon: Stethoscope,
       color: 'border-teal-500 bg-teal-50/50',
       badge: 'bg-[#008F83] text-white',
-      desc: 'Reviews and authorizes high-risk AI procurement and redistribution proposals. Evaluates clinical safety.',
+      desc: 'Reviews and authorizes AI procurement and redistribution proposals for the selected branch.',
       permissions: [
         'Approve/reject AI purchase orders',
         'Approve/reject inter-ward transfers',
@@ -59,24 +88,24 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     {
       role: 'ADMIN' as UserRole,
       title: 'Hospital Administrator',
-      name: 'Elena Rostova',
+      name: 'Marcus Vance',
       icon: ShieldCheck,
       color: 'border-amber-500 bg-amber-50/50',
       badge: 'bg-[#F4B400] text-[#12332C]',
-      desc: 'Oversees hospital data governance, reviews immutable audit ledgers, and manages system accounts.',
+      desc: 'Oversees enterprise data governance, reviews immutable audit ledgers, and manages system accounts across the organization.',
       permissions: [
         'Full administrative override capability',
         'Inspect immutable audit ledger',
         'Manage hospital accounts & roles',
-        'System-wide health & model diagnostics'
+        'Organization-wide diagnostics'
       ],
-      restrictions: 'Superuser access'
+      restrictions: 'Superuser access (No branch required)'
     }
   ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-3xl max-w-2xl w-full border border-[#D9E8E3] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-3xl max-w-2xl w-full border border-[#D9E8E3] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-6 py-5 bg-[#004D3A] text-white flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -85,7 +114,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             </div>
             <div>
               <h2 className="text-base font-bold text-white tracking-wide">Hospital Security & RBAC Portal</h2>
-              <p className="text-xs text-[#D9E8E3]/80">Select an authenticated role to switch access permissions</p>
+              <p className="text-xs text-[#D9E8E3]/80">Select role and organizational scope to switch authenticated session</p>
             </div>
           </div>
           <button
@@ -98,11 +127,56 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-4">
+          {/* Organization Scope Pickers */}
+          <div className="p-4 bg-[#F3FAF7] border border-[#D9E8E3] rounded-2xl grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-[#12332C] uppercase tracking-wider mb-1 flex items-center space-x-1">
+                <Building2 className="w-3.5 h-3.5 text-[#006B4F]" />
+                <span>Select Company</span>
+              </label>
+              <select
+                value={companyId}
+                onChange={(e) => {
+                  const newCompId = Number(e.target.value);
+                  setCompanyId(newCompId);
+                  const comp = companies.find((c) => c.id === newCompId);
+                  if (comp && comp.branches && comp.branches.length > 0) {
+                    setBranchId(comp.branches[0].id);
+                  }
+                }}
+                className="w-full bg-white border border-[#D9E8E3] rounded-xl px-3 py-2 text-xs font-semibold text-[#12332C] focus:outline-none focus:border-[#006B4F]"
+              >
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-[#12332C] uppercase tracking-wider mb-1 flex items-center space-x-1">
+                <MapPin className="w-3.5 h-3.5 text-[#008F83]" />
+                <span>Select Branch (Facility)</span>
+              </label>
+              <select
+                value={branchId}
+                onChange={(e) => setBranchId(Number(e.target.value))}
+                className="w-full bg-white border border-[#D9E8E3] rounded-xl px-3 py-2 text-xs font-semibold text-[#12332C] focus:outline-none focus:border-[#008F83]"
+              >
+                {availableBranches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.location || b.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="bg-[#F3FAF7] border border-[#D9E8E3] rounded-2xl p-3 text-xs text-[#2D5A50] flex items-center space-x-2">
             <CheckCircle2 className="w-4 h-4 text-[#006B4F] shrink-0" />
             <span>
-              <strong>Zero Untrusted Input Rule:</strong> AI agents strictly query records with{' '}
-              <code className="bg-[#006B4F]/10 px-1 py-0.5 rounded text-[#006B4F] font-mono font-bold">trust_status == 'VALIDATED'</code>.
+              <strong>Access Scope:</strong> Switching role updates your JWT session to target Company + Branch.
             </span>
           </div>
 
@@ -146,6 +220,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                       </span>
                     ) : (
                       <button
+                        disabled={loading}
                         className="text-xs font-semibold text-[#006B4F] hover:text-[#004D3A] flex items-center space-x-1 bg-[#E6F4F0] px-3 py-1 rounded-full hover:bg-[#D9E8E3] transition-colors"
                       >
                         <span>Switch</span>
@@ -166,7 +241,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                       </ul>
                     </div>
                     <div className="text-[11px]">
-                      <span className="font-semibold text-rose-700">Governance Guard:</span>
+                      <span className="font-semibold text-rose-700">Governance Scope:</span>
                       <p className="text-[#647772] text-[10px] mt-0.5 leading-snug">{p.restrictions}</p>
                     </div>
                   </div>
@@ -179,7 +254,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         {/* Footer */}
         <div className="px-6 py-4 bg-[#F3FAF7] border-t border-[#D9E8E3] flex items-center justify-between">
           <div className="text-xs text-[#647772]">
-            Current Actor: <strong>{user?.display_name || 'Pharmacist'}</strong> ({role})
+            Current Actor: <strong>{user?.display_name || 'Liam Patel'}</strong> ({role}) • {user?.company_name || 'ABC Healthcare'}{role !== 'ADMIN' && user?.branch_name ? ` / ${user.branch_name}` : ''}
           </div>
           <button
             onClick={onClose}

@@ -2,13 +2,22 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.entities import User, UserRole
+from app.models.entities import User, UserRole, Company, Branch
 from datetime import datetime
 from sqlalchemy import func
-from app.schemas.schemas import LoginRequest, LoginResponse, UserResponse, RegisterRequest, RegisterResponse
+from app.schemas.schemas import (
+    LoginRequest,
+    LoginResponse,
+    UserResponse,
+    RegisterRequest,
+    RegisterResponse,
+    CompanyResponse,
+    BranchResponse
+)
 from app.services.auth_service import (
     DEFAULT_DEMO_USERS,
     ensure_seed_users,
+    ensure_seed_companies_and_branches,
     create_access_token,
     get_current_user,
     require_role,
@@ -17,6 +26,56 @@ from app.services.auth_service import (
 )
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication & RBAC"])
+
+@router.get("/companies", response_model=List[CompanyResponse])
+def get_companies(db: Session = Depends(get_db)):
+    """List available hospital companies and their facilities."""
+    ensure_seed_companies_and_branches(db)
+    companies = db.query(Company).filter(Company.status == "ACTIVE").all()
+    results = []
+    for c in companies:
+        branch_items = [
+            BranchResponse(
+                id=b.id,
+                company_id=b.company_id,
+                name=b.name,
+                code=b.code,
+                location=b.location,
+                status=b.status
+            )
+            for b in c.branches if b.status == "ACTIVE"
+        ]
+        results.append(CompanyResponse(
+            id=c.id,
+            name=c.name,
+            code=c.code,
+            status=c.status,
+            branches=branch_items
+        ))
+    return results
+
+@router.get("/companies/{company_id}/branches", response_model=List[BranchResponse])
+def get_company_branches(company_id: int, db: Session = Depends(get_db)):
+    """List active branches belonging strictly to the requested company."""
+    ensure_seed_companies_and_branches(db)
+    company = db.query(Company).filter(Company.id == company_id, Company.status == "ACTIVE").first()
+    if not company:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Company with ID {company_id} not found or inactive."
+        )
+    branches = db.query(Branch).filter(Branch.company_id == company_id, Branch.status == "ACTIVE").all()
+    return [
+        BranchResponse(
+            id=b.id,
+            company_id=b.company_id,
+            name=b.name,
+            code=b.code,
+            location=b.location,
+            status=b.status
+        )
+        for b in branches
+    ]
 
 @router.post("/register", response_model=RegisterResponse)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
@@ -82,6 +141,11 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
     p_hash = hash_password(password)
 
+    comp_id = payload.company_id or 1
+    branch_id = payload.branch_id if role_str != UserRole.ADMIN.value else None
+    if role_str != UserRole.ADMIN.value and not branch_id:
+        branch_id = 1
+
     new_user = User(
         username=username,
         role=UserRole(role_str),
@@ -89,6 +153,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         title=title,
         email=email,
         password_hash=p_hash,
+        company_id=comp_id,
+        branch_id=branch_id,
         active=True,
         created_at=datetime.utcnow()
     )
@@ -103,7 +169,9 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     return RegisterResponse(
         message="Registration successful. You can now sign in.",
         username=new_user.username,
-        role=new_user.role.value if hasattr(new_user.role, 'value') else str(new_user.role)
+        role=new_user.role.value if hasattr(new_user.role, 'value') else str(new_user.role),
+        company_id=new_user.company_id,
+        branch_id=new_user.branch_id
     )
 
 @router.post("/login", response_model=LoginResponse)
@@ -123,11 +191,27 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Unknown role: {payload.demo_role}. Choose DATA_MANAGER, PHARMACIST, or ADMIN."
             )
+        
+        comp_id = payload.company_id or matched.get("company_id", 1)
+        company_obj = db.query(Company).filter(Company.id == comp_id).first()
+        comp_name = company_obj.name if company_obj else "ABC Healthcare"
+
+        br_id = None
+        br_name = None
+        if role_upper != UserRole.ADMIN.value:
+            br_id = payload.branch_id or matched.get("branch_id", 1)
+            branch_obj = db.query(Branch).filter(Branch.id == br_id).first()
+            br_name = branch_obj.name if branch_obj else "Chennai Main Hospital"
+
         token = create_access_token(
             username=matched["username"],
             role=matched["role"],
             display_name=matched["display_name"],
-            title=matched["title"]
+            title=matched["title"],
+            company_id=comp_id,
+            company_name=comp_name,
+            branch_id=br_id,
+            branch_name=br_name
         )
         return LoginResponse(
             token=token,
@@ -136,7 +220,11 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
                 username=matched["username"],
                 role=matched["role"],
                 display_name=matched["display_name"],
-                title=matched["title"]
+                title=matched["title"],
+                company_id=comp_id,
+                company_name=comp_name,
+                branch_id=br_id,
+                branch_name=br_name
             )
         )
 
@@ -202,11 +290,80 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
                 detail=f"Access denied. User '{uname}' does not have the {expected_role} role required for this portal."
             )
 
+    # 3. Company & Branch Validation
+    selected_company_id = payload.company_id
+    selected_branch_id = payload.branch_id
+
+    # If company_id is provided, validate it exists and is active
+    company_obj = None
+    if selected_company_id:
+        company_obj = db.query(Company).filter(Company.id == selected_company_id, Company.status == "ACTIVE").first()
+        if not company_obj:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Company with ID {selected_company_id} does not exist or is inactive."
+            )
+    else:
+        comp_id = (db_user.company_id if db_user and db_user.company_id else (matched.get("company_id") if matched else 1))
+        company_obj = db.query(Company).filter(Company.id == comp_id).first()
+        selected_company_id = company_obj.id if company_obj else 1
+
+    # Branch validation for DATA_MANAGER and PHARMACIST
+    branch_obj = None
+    if user_role in [UserRole.DATA_MANAGER.value, UserRole.PHARMACIST.value]:
+        if selected_branch_id:
+            branch_obj = db.query(Branch).filter(Branch.id == selected_branch_id, Branch.status == "ACTIVE").first()
+            if not branch_obj:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Branch with ID {selected_branch_id} does not exist or is inactive."
+                )
+            # CRITICAL SECURITY CHECK: Branch must belong to the chosen company!
+            if branch_obj.company_id != selected_company_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Security violation: Branch '{branch_obj.name}' does not belong to company '{company_obj.name}'."
+                )
+        else:
+            b_id = (db_user.branch_id if db_user and db_user.branch_id else (matched.get("branch_id") if matched else None))
+            if b_id:
+                branch_obj = db.query(Branch).filter(Branch.id == b_id, Branch.company_id == selected_company_id).first()
+            if not branch_obj:
+                branch_obj = db.query(Branch).filter(Branch.company_id == selected_company_id, Branch.status == "ACTIVE").first()
+            selected_branch_id = branch_obj.id if branch_obj else None
+    else:
+        # Hospital Administrator does NOT require or use branch selection
+        selected_branch_id = None
+        branch_obj = None
+
+    # Verify user account authorization scope
+    assigned_company_id = db_user.company_id if db_user else (matched.get("company_id") if matched else None)
+    if assigned_company_id and selected_company_id and assigned_company_id != selected_company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied. User '{uname}' is assigned to company ID {assigned_company_id}, not authorized for company ID {selected_company_id}."
+        )
+
+    if user_role != UserRole.ADMIN.value:
+        assigned_branch_id = db_user.branch_id if db_user else (matched.get("branch_id") if matched else None)
+        if assigned_branch_id and selected_branch_id and assigned_branch_id != selected_branch_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. User '{uname}' is assigned to branch ID {assigned_branch_id}, not authorized for branch ID {selected_branch_id}."
+            )
+
+    company_name = company_obj.name if company_obj else "ABC Healthcare"
+    branch_name = branch_obj.name if branch_obj else ("Chennai Main Hospital" if user_role != UserRole.ADMIN.value else None)
+
     token = create_access_token(
         username=user_username,
         role=user_role,
         display_name=user_display,
-        title=user_title
+        title=user_title,
+        company_id=selected_company_id,
+        company_name=company_name,
+        branch_id=selected_branch_id,
+        branch_name=branch_name
     )
     return LoginResponse(
         token=token,
@@ -215,19 +372,27 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             username=user_username,
             role=user_role,
             display_name=user_display,
-            title=user_title
+            title=user_title,
+            company_id=selected_company_id,
+            company_name=company_name,
+            branch_id=selected_branch_id,
+            branch_name=branch_name
         )
     )
 
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: dict = Depends(get_current_user)):
-    """Return currently active user session profile."""
+    """Return currently active user session profile with organizational scope."""
     return UserResponse(
-        id=1,
+        id=current_user.get("id", 1),
         username=current_user["username"],
         role=current_user["role"],
         display_name=current_user.get("display_name", current_user["username"]),
-        title=current_user.get("title", "")
+        title=current_user.get("title", ""),
+        company_id=current_user.get("company_id", 1),
+        company_name=current_user.get("company_name", "ABC Healthcare"),
+        branch_id=current_user.get("branch_id"),
+        branch_name=current_user.get("branch_name")
     )
 
 @router.get("/users", response_model=List[UserResponse])
@@ -243,6 +408,10 @@ def get_users(db: Session = Depends(get_db)):
             username=u.username,
             role=role_val,
             display_name=u.display_name,
-            title=u.title
+            title=u.title,
+            company_id=u.company_id,
+            company_name=u.company.name if u.company else None,
+            branch_id=u.branch_id,
+            branch_name=u.branch.name if u.branch else None
         ))
     return results

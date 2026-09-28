@@ -9,7 +9,9 @@ import {
   PurchaseOrderItem,
   SimulationResponse,
   DataSourceItem,
-  DataQualityReport
+  DataQualityReport,
+  Company,
+  Branch
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -177,14 +179,26 @@ export const api = {
   },
 
   // Authentication & RBAC
-  login: async (payload: { demo_role?: string; username?: string; password?: string; role?: string }) => {
+  login: async (payload: { demo_role?: string; username?: string; password?: string; role?: string; company_id?: number; branch_id?: number }) => {
     const res = await client.post('/api/auth/login', payload);
     if (res.data?.token) {
       localStorage.setItem('medisentinel_token', res.data.token);
       localStorage.setItem('medisentinel_role', res.data.user.role);
       localStorage.setItem('medisentinel_user', res.data.user.username);
       localStorage.setItem('medisentinel_display_name', res.data.user.display_name);
+      if (res.data.user.company_id) localStorage.setItem('medisentinel_company_id', String(res.data.user.company_id));
+      if (res.data.user.company_name) localStorage.setItem('medisentinel_company_name', res.data.user.company_name);
+      if (res.data.user.branch_id) localStorage.setItem('medisentinel_branch_id', String(res.data.user.branch_id));
+      if (res.data.user.branch_name) localStorage.setItem('medisentinel_branch_name', res.data.user.branch_name);
     }
+    return res.data;
+  },
+  getCompanies: async (): Promise<Company[]> => {
+    const res = await client.get<Company[]>('/api/auth/companies');
+    return res.data;
+  },
+  getBranches: async (companyId: number): Promise<Branch[]> => {
+    const res = await client.get<Branch[]>(`/api/auth/companies/${companyId}/branches`);
     return res.data;
   },
   register: async (payload: {
@@ -194,6 +208,8 @@ export const api = {
     password: string;
     confirm_password: string;
     role: string;
+    company_id?: number;
+    branch_id?: number;
   }) => {
     const res = await client.post('/api/auth/register', payload);
     return res.data;
