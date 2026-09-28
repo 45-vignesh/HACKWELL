@@ -33,6 +33,17 @@ const DEFAULT_COMPANIES: Company[] = [
   }
 ];
 
+const getBranchPharmUsername = (branch?: Branch | null): string => {
+  if (!branch) return 'pharmacist';
+  if (branch.id === 1) return 'pharmacist';
+  if (branch.id === 2) return 'pharm_annanagar';
+  if (branch.id === 3) return 'pharm_tambaram';
+  if (branch.id === 4) return 'pharm_apex_city';
+  if (branch.id === 5) return 'pharm_apex_north';
+  const cleanCode = branch.code.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  return `pharm_${cleanCode}`;
+};
+
 export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack, onGoToRegister }) => {
   const { loginWithCredentials } = useAuth();
 
@@ -67,7 +78,20 @@ export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack
     return 'company';
   });
 
-  const [username, setUsername] = useState('pharmacist');
+  const [username, setUsername] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const bId = Number(params.get('branch_id'));
+      if (bId) {
+        if (bId === 1) return 'pharmacist';
+        if (bId === 2) return 'pharm_annanagar';
+        if (bId === 3) return 'pharm_tambaram';
+        if (bId === 4) return 'pharm_apex_city';
+        if (bId === 5) return 'pharm_apex_north';
+      }
+    } catch {}
+    return 'pharmacist';
+  });
   const [password, setPassword] = useState('Pharmacist@123');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -89,13 +113,19 @@ export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack
 
   const handleSelectCompany = (comp: Company) => {
     setSelectedCompany(comp);
-    setSelectedBranch(comp.branches && comp.branches.length > 0 ? comp.branches[0] : null);
+    const firstBranch = comp.branches && comp.branches.length > 0 ? comp.branches[0] : null;
+    setSelectedBranch(firstBranch);
+    if (firstBranch) {
+      setUsername(getBranchPharmUsername(firstBranch));
+    }
     setError(null);
     setStep('branch');
   };
 
   const handleSelectBranch = (br: Branch) => {
     setSelectedBranch(br);
+    setUsername(getBranchPharmUsername(br));
+    setPassword('Pharmacist@123');
     setError(null);
     setStep('login');
   };
@@ -124,7 +154,7 @@ export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack
   };
 
   const handleUseDemo = () => {
-    setUsername('pharmacist');
+    setUsername(getBranchPharmUsername(selectedBranch));
     setPassword('Pharmacist@123');
     setError(null);
   };
@@ -340,7 +370,7 @@ export const PharmacistLoginPage: React.FC<PharmacistLoginPageProps> = ({ onBack
               <div className="p-3 bg-white/70 border border-[#D9E8E3] rounded-2xl flex items-center justify-between">
                 <div className="text-[11px] text-[#647772]">
                   <span className="font-bold text-[#12332C]">Role Credentials:</span>
-                  <div className="font-mono text-[10px] text-[#008F83]">pharmacist / Pharmacist@123</div>
+                  <div className="font-mono text-[10px] text-[#008F83]">{getBranchPharmUsername(selectedBranch)} / Pharmacist@123</div>
                 </div>
                 <button
                   type="button"

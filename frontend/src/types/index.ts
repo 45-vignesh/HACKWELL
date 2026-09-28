@@ -338,3 +338,194 @@ export interface BatchImportResponse {
   rejected_errors?: any[];
 }
 
+export interface BillItemDeduction {
+  batch_id: number;
+  batch_number: string;
+  quantity: number;
+  expiry_date?: string;
+}
+
+export interface BillItemDetail {
+  id: number;
+  medicine_id: number;
+  inventory_id?: number;
+  ward_id?: number;
+  ward_name?: string;
+  medicine_name: string;
+  medicine_code: string;
+  quantity: number;
+  days_supply?: number;
+  unit_price: number;
+  total_price: number;
+  previous_stock?: number;
+  updated_stock?: number;
+  batch_deductions?: BillItemDeduction[];
+}
+
+export interface SMSNotificationDetail {
+  id?: number;
+  status: 'QUEUED' | 'SENT' | 'DELIVERED' | 'FAILED' | 'NOT_CONFIGURED' | 'OPTED_OUT' | string;
+  masked_phone?: string;
+  provider?: string;
+  provider_message_id?: string;
+  message?: string;
+  status_message?: string;
+  failure_reason?: string;
+  created_at?: string;
+  sent_at?: string;
+  delivered_at?: string;
+}
+
+export interface Bill {
+  id: number;
+  bill_number: string;
+  company_id?: number;
+  branch_id?: number;
+  ward_id?: number;
+  ward_name?: string;
+  created_by: string;
+  role: string;
+  status: 'DRAFT' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+  subtotal: number;
+  total_amount: number;
+  patient_id?: number;
+  patient_name?: string;
+  notes?: string;
+  created_at: string;
+  patient_phone?: string;
+  notification_consent?: boolean;
+  sms_notification?: SMSNotificationDetail;
+  refill_reminders_count?: number;
+  items: BillItemDetail[];
+}
+
+export interface BillCreatePayload {
+  ward_id?: number;
+  patient_id?: number;
+  patient_name?: string;
+  patient_phone?: string;
+  notification_consent?: boolean;
+  notes?: string;
+  items: {
+    medicine_id?: number;
+    inventory_id?: number;
+    ward_id?: number;
+    quantity: number;
+    days_supply?: number;
+  }[];
+}
+
+export interface BillCancelResponse {
+  message: string;
+  bill_id: number;
+  bill_number: string;
+  status: string;
+  reversed_items: {
+    medicine_id: number;
+    medicine_name: string;
+    reversed_quantity: number;
+    previous_stock: number;
+    restored_stock: number;
+  }[];
+}
+
+// Patient Refill Reminder Types
+export interface Patient {
+  id: number;
+  patient_id: string;
+  full_name: string;
+  mobile_number: string;
+  email?: string;
+  notification_consent: boolean;
+  company_id?: number;
+  branch_id?: number;
+  created_at: string;
+}
+
+export interface PatientCreatePayload {
+  patient_id?: string;
+  full_name: string;
+  mobile_number: string;
+  email?: string;
+  notification_consent: boolean;
+}
+
+export interface NotificationLog {
+  id: number;
+  reminder_id?: number;
+  bill_id?: number;
+  patient_id?: number;
+  channel: string;
+  recipient: string;
+  masked_phone_number?: string;
+  message: string;
+  provider?: string;
+  provider_message_id?: string;
+  status: string;
+  created_at?: string;
+  sent_at: string;
+  delivered_at?: string;
+  failure_reason?: string;
+}
+
+export interface MedicationReminder {
+  id: number;
+  patient_id: number;
+  patient_name: string;
+  patient_code: string;
+  mobile_number: string;
+  notification_consent: boolean;
+  bill_id: number;
+  bill_number: string;
+  bill_item_id?: number;
+  medicine_id: number;
+  medicine_name: string;
+  quantity: number;
+  days_supply: number;
+  bill_date: string;
+  estimated_finish_date: string;
+  reminder_date: string;
+  status: 'PENDING' | 'SENT' | 'DELIVERED' | 'OPTED_OUT' | 'CANCELLED';
+  notification_message?: string;
+  channel: string;
+  created_at: string;
+  notification_logs?: NotificationLog[];
+}
+
+export interface ReminderProcessResult {
+  target_date: string;
+  total_checked: number;
+  sent_count: number;
+  opted_out_count: number;
+  failed_count: number;
+  already_processed_count: number;
+  details: Array<{
+    reminder_id: number;
+    patient_name: string;
+    medicine_name: string;
+    status: string;
+    reason?: string;
+  }>;
+}
+
+export interface SMSGatewayConfig {
+  active_provider: string;
+  has_twilio: boolean;
+  has_fast2sms: boolean;
+  has_custom_gateway: boolean;
+  twilio_phone?: string;
+  default_sender?: string;
+  supported_providers: string[];
+}
+
+export interface SMSGatewayUpdate {
+  provider?: string;
+  twilio_sid?: string;
+  twilio_token?: string;
+  twilio_phone?: string;
+  fast2sms_key?: string;
+  gateway_url?: string;
+  sender_id?: string;
+}
+
+

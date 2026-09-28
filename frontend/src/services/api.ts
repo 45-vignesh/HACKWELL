@@ -11,8 +11,19 @@ import {
   DataSourceItem,
   DataQualityReport,
   Company,
-  Branch
+  Branch,
+  Bill,
+  BillCreatePayload,
+  BillCancelResponse,
+  Patient,
+  PatientCreatePayload,
+  MedicationReminder,
+  NotificationLog,
+  ReminderProcessResult,
+  SMSGatewayConfig,
+  SMSGatewayUpdate
 } from '../types';
+
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -243,5 +254,78 @@ export const api = {
   getDataAuditTrail: async (params?: { user?: string; role?: string; action?: string; validation_result?: string; limit?: number }) => {
     const res = await client.get('/api/audit-trail/data', { params });
     return res.data;
+  },
+
+  // Pharmacy Billing & Operational Dispensing
+  getBills: async (wardId?: number): Promise<Bill[]> => {
+    const res = await client.get<Bill[]>('/api/billing/bills', { params: { ward_id: wardId } });
+    return res.data;
+  },
+  getBillById: async (idOrNumber: string | number): Promise<Bill> => {
+    const res = await client.get<Bill>(`/api/billing/bills/${idOrNumber}`);
+    return res.data;
+  },
+  createBill: async (payload: BillCreatePayload): Promise<Bill> => {
+    const res = await client.post<Bill>('/api/billing/bills', payload);
+    return res.data;
+  },
+  cancelBill: async (billId: number): Promise<BillCancelResponse> => {
+    const res = await client.post<BillCancelResponse>(`/api/billing/bills/${billId}/cancel`);
+    return res.data;
+  },
+
+  // Patient Refill Reminders
+  getPatients: async (): Promise<Patient[]> => {
+    const res = await client.get<Patient[]>('/api/reminders/patients');
+    return res.data;
+  },
+  createPatient: async (payload: PatientCreatePayload): Promise<Patient> => {
+    const res = await client.post<Patient>('/api/reminders/patients', payload);
+    return res.data;
+  },
+  getReminders: async (params?: { status?: string; patient_id?: number }): Promise<MedicationReminder[]> => {
+    const res = await client.get<MedicationReminder[]>('/api/reminders', { params });
+    return res.data;
+  },
+  getReminderLogs: async (reminderId?: number): Promise<NotificationLog[]> => {
+    const res = reminderId 
+      ? await client.get<NotificationLog[]>(`/api/reminders/${reminderId}/logs`)
+      : await client.get<NotificationLog[]>('/api/reminders/logs');
+    return res.data;
+  },
+  processDueReminders: async (simulateDate?: string): Promise<ReminderProcessResult> => {
+    const res = await client.post<ReminderProcessResult>('/api/reminders/process', null, {
+      params: simulateDate ? { simulate_date: simulateDate } : {}
+    });
+    return res.data;
+  },
+  sendSingleReminder: async (reminderId: number, force?: boolean): Promise<any> => {
+    const res = await client.post(`/api/reminders/${reminderId}/send`, null, {
+      params: { force }
+    });
+    return res.data;
+  },
+  getSMSConfig: async (): Promise<SMSGatewayConfig> => {
+    const res = await client.get<SMSGatewayConfig>('/api/reminders/sms-config');
+    return res.data;
+  },
+  updateSMSConfig: async (payload: SMSGatewayUpdate): Promise<SMSGatewayConfig> => {
+    const res = await client.post<SMSGatewayConfig>('/api/reminders/sms-config', payload);
+    return res.data;
+  },
+
+  // Bill Autonomous SMS Notifications
+  getBillSMSNotification: async (billId: number): Promise<any> => {
+    const res = await client.get(`/api/notifications/sms/bill/${billId}`);
+    return res.data;
+  },
+  simulateSMSDelivery: async (logId: number): Promise<any> => {
+    const res = await client.post(`/api/notifications/sms/simulate-delivery/${logId}`);
+    return res.data;
+  },
+  getSMSLogs: async (params?: { bill_id?: number; status?: string; limit?: number }): Promise<NotificationLog[]> => {
+    const res = await client.get<NotificationLog[]>('/api/notifications/sms/logs', { params });
+    return res.data;
   }
 };
+

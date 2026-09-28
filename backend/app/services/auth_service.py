@@ -33,6 +33,7 @@ def verify_password(plain_password: str, stored_hash: str) -> bool:
 
 # Demo Seed Users with Official Passwords and Organizational Scope
 DEFAULT_DEMO_USERS = [
+    # Company 1: ABC Healthcare
     {
         "username": "data_manager",
         "role": UserRole.DATA_MANAGER.value,
@@ -59,6 +60,88 @@ DEFAULT_DEMO_USERS = [
         "password": "Admin@123",
         "company_id": 1,
         "branch_id": None
+    },
+    {
+        "username": "dm_annanagar",
+        "role": UserRole.DATA_MANAGER.value,
+        "display_name": "Liam Patel (Anna Nagar)",
+        "title": "Inventory Data Specialist",
+        "password": "DataManager@123",
+        "company_id": 1,
+        "branch_id": 2
+    },
+    {
+        "username": "pharm_annanagar",
+        "role": UserRole.PHARMACIST.value,
+        "display_name": "Dr. Sarah Alston (Anna Nagar)",
+        "title": "Chief Pharmacist & Clinical Approver",
+        "password": "Pharmacist@123",
+        "company_id": 1,
+        "branch_id": 2
+    },
+    {
+        "username": "dm_tambaram",
+        "role": UserRole.DATA_MANAGER.value,
+        "display_name": "Liam Patel (Tambaram)",
+        "title": "Inventory Data Specialist",
+        "password": "DataManager@123",
+        "company_id": 1,
+        "branch_id": 3
+    },
+    {
+        "username": "pharm_tambaram",
+        "role": UserRole.PHARMACIST.value,
+        "display_name": "Dr. Sarah Alston (Tambaram)",
+        "title": "Chief Pharmacist & Clinical Approver",
+        "password": "Pharmacist@123",
+        "company_id": 1,
+        "branch_id": 3
+    },
+    # Company 2: Apex Global Health
+    {
+        "username": "admin_apex",
+        "role": UserRole.ADMIN.value,
+        "display_name": "Marcus Vance (Apex)",
+        "title": "Hospital Systems Administrator",
+        "password": "Admin@123",
+        "company_id": 2,
+        "branch_id": None
+    },
+    {
+        "username": "dm_apex_city",
+        "role": UserRole.DATA_MANAGER.value,
+        "display_name": "Liam Patel (Apex City)",
+        "title": "Inventory Data Specialist",
+        "password": "DataManager@123",
+        "company_id": 2,
+        "branch_id": 4
+    },
+    {
+        "username": "pharm_apex_city",
+        "role": UserRole.PHARMACIST.value,
+        "display_name": "Dr. Sarah Alston (Apex City)",
+        "title": "Chief Pharmacist & Clinical Approver",
+        "password": "Pharmacist@123",
+        "company_id": 2,
+        "branch_id": 4
+    },
+    {
+        "username": "dm_apex_north",
+        "role": UserRole.DATA_MANAGER.value,
+        "display_name": "Liam Patel (Apex North)",
+        "title": "Inventory Data Specialist",
+        "password": "DataManager@123",
+        "company_id": 2,
+        "branch_id": 5
+    },
+    {
+        "username": "pharm_apex_north",
+        "role": UserRole.PHARMACIST.value,
+        "display_name": "Dr. Sarah Alston (Apex North)",
+        "title": "Chief Pharmacist & Clinical Approver",
+        "password": "Pharmacist@123",
+        "company_id": 2,
+        "branch_id": 5
     }
 ]
 
@@ -101,30 +184,209 @@ def ensure_seed_companies_and_branches(db: Session):
         db.rollback()
 
 def ensure_seed_users(db: Session):
-    """Seed prototype users in the database if they do not exist."""
+    """Seed prototype users and dynamically audit all active companies and branches."""
     ensure_seed_companies_and_branches(db)
+
+    # 1. Seed or synchronize explicit demo users
     for u in DEFAULT_DEMO_USERS:
         exists = db.query(User).filter(User.username == u["username"]).first()
+        hashed = hash_password(u["password"])
         if not exists:
             new_user = User(
                 username=u["username"],
                 role=UserRole(u["role"]),
                 display_name=u["display_name"],
-                title=u["title"],
-                company_id=u.get("company_id", 1),
+                title=u.get("title", ""),
+                password_hash=hashed,
+                company_id=u.get("company_id"),
                 branch_id=u.get("branch_id"),
                 active=True
             )
             db.add(new_user)
         else:
-            # Sync company and branch if missing
-            if not exists.company_id and u.get("company_id"):
-                exists.company_id = u["company_id"]
-                exists.branch_id = u.get("branch_id")
+            # Sync company, branch, active, and password_hash
+            exists.role = UserRole(u["role"])
+            exists.company_id = u.get("company_id")
+            exists.branch_id = u.get("branch_id")
+            exists.active = True
+            if not exists.password_hash:
+                exists.password_hash = hashed
+
+    db.flush()
+
+    # 2. Dynamic Audit & Auto-repair for any active company in the DB
+    active_companies = db.query(Company).filter(Company.status == "ACTIVE").all()
+    for comp in active_companies:
+        admin_user = db.query(User).filter(
+            User.company_id == comp.id,
+            User.role == UserRole.ADMIN,
+            User.branch_id == None,
+            User.active == True
+        ).first()
+        if not admin_user:
+            slug = comp.code.lower().replace("-", "_")
+            admin_uname = f"admin_{slug}"
+            existing = db.query(User).filter(User.username == admin_uname).first()
+            if existing:
+                existing.company_id = comp.id
+                existing.branch_id = None
+                existing.active = True
+                if not existing.password_hash:
+                    existing.password_hash = hash_password("Admin@123")
+            else:
+                db.add(User(
+                    username=admin_uname,
+                    role=UserRole.ADMIN,
+                    display_name=f"Admin ({comp.name})",
+                    title="Hospital Systems Administrator",
+                    password_hash=hash_password("Admin@123"),
+                    company_id=comp.id,
+                    branch_id=None,
+                    active=True
+                ))
+
+    # 3. Dynamic Audit & Auto-repair for any active branch in the DB
+    active_branches = db.query(Branch).filter(Branch.status == "ACTIVE").all()
+    for branch in active_branches:
+        # Check DATA_MANAGER
+        dm_user = db.query(User).filter(
+            User.company_id == branch.company_id,
+            User.branch_id == branch.id,
+            User.role == UserRole.DATA_MANAGER,
+            User.active == True
+        ).first()
+        if not dm_user:
+            slug = branch.code.lower().replace("-", "_")
+            dm_uname = f"dm_{slug}"
+            existing = db.query(User).filter(User.username == dm_uname).first()
+            if existing:
+                existing.company_id = branch.company_id
+                existing.branch_id = branch.id
+                existing.active = True
+                if not existing.password_hash:
+                    existing.password_hash = hash_password("DataManager@123")
+            else:
+                db.add(User(
+                    username=dm_uname,
+                    role=UserRole.DATA_MANAGER,
+                    display_name=f"Data Manager ({branch.name})",
+                    title="Inventory Data Specialist",
+                    password_hash=hash_password("DataManager@123"),
+                    company_id=branch.company_id,
+                    branch_id=branch.id,
+                    active=True
+                ))
+
+        # Check PHARMACIST
+        pharm_user = db.query(User).filter(
+            User.company_id == branch.company_id,
+            User.branch_id == branch.id,
+            User.role == UserRole.PHARMACIST,
+            User.active == True
+        ).first()
+        if not pharm_user:
+            slug = branch.code.lower().replace("-", "_")
+            pharm_uname = f"pharm_{slug}"
+            existing = db.query(User).filter(User.username == pharm_uname).first()
+            if existing:
+                existing.company_id = branch.company_id
+                existing.branch_id = branch.id
+                existing.active = True
+                if not existing.password_hash:
+                    existing.password_hash = hash_password("Pharmacist@123")
+            else:
+                db.add(User(
+                    username=pharm_uname,
+                    role=UserRole.PHARMACIST,
+                    display_name=f"Pharmacist ({branch.name})",
+                    title="Chief Pharmacist & Clinical Approver",
+                    password_hash=hash_password("Pharmacist@123"),
+                    company_id=branch.company_id,
+                    branch_id=branch.id,
+                    active=True
+                ))
+
     try:
         db.commit()
     except Exception:
         db.rollback()
+
+def audit_login_coverage(db: Session) -> Dict[str, Any]:
+    """Audit company and branch login readiness according to hospital governance rules."""
+    ensure_seed_users(db)
+    companies = db.query(Company).filter(Company.status == "ACTIVE").order_by(Company.id).all()
+    report = []
+    
+    total_companies = len(companies)
+    total_branches = 0
+    total_dm_verified = 0
+    total_pharm_verified = 0
+    total_admin_verified = 0
+
+    for comp in companies:
+        admin_acc = db.query(User).filter(
+            User.company_id == comp.id,
+            User.role == UserRole.ADMIN,
+            User.branch_id == None,
+            User.active == True
+        ).first()
+        admin_pass = admin_acc is not None
+        if admin_pass:
+            total_admin_verified += 1
+
+        branches = db.query(Branch).filter(Branch.company_id == comp.id, Branch.status == "ACTIVE").order_by(Branch.id).all()
+        total_branches += len(branches)
+
+        for br in branches:
+            dm_acc = db.query(User).filter(
+                User.company_id == comp.id,
+                User.branch_id == br.id,
+                User.role == UserRole.DATA_MANAGER,
+                User.active == True
+            ).first()
+
+            pharm_acc = db.query(User).filter(
+                User.company_id == comp.id,
+                User.branch_id == br.id,
+                User.role == UserRole.PHARMACIST,
+                User.active == True
+            ).first()
+
+            dm_pass = dm_acc is not None
+            pharm_pass = pharm_acc is not None
+            if dm_pass:
+                total_dm_verified += 1
+            if pharm_pass:
+                total_pharm_verified += 1
+
+            report.append({
+                "company_id": comp.id,
+                "company_name": comp.name,
+                "company_code": comp.code,
+                "branch_id": br.id,
+                "branch_name": br.name,
+                "branch_code": br.code,
+                "data_manager_user": dm_acc.username if dm_acc else None,
+                "data_manager_status": "PASS" if dm_pass else "FAIL",
+                "pharmacist_user": pharm_acc.username if pharm_acc else None,
+                "pharmacist_status": "PASS" if pharm_pass else "FAIL",
+                "admin_user": admin_acc.username if admin_acc else None,
+                "admin_status": "PASS" if admin_pass else "FAIL",
+                "overall_status": "PASS" if (dm_pass and pharm_pass and admin_pass) else "FAIL"
+            })
+
+    all_branches_passed = all(item["overall_status"] == "PASS" for item in report)
+    return {
+        "summary": {
+            "total_active_companies": total_companies,
+            "total_active_branches": total_branches,
+            "data_manager_verified": total_dm_verified,
+            "pharmacist_verified": total_pharm_verified,
+            "admin_verified": total_admin_verified,
+            "all_branches_passed": all_branches_passed
+        },
+        "coverage_records": report
+    }
 
 def create_access_token(
     username: str,
@@ -215,7 +477,7 @@ def get_current_user(
             }
 
     # 3. Default prototype user: Pharmacist
-    default_user = DEFAULT_DEMO_USERS[1]
+    default_user = next((u for u in DEFAULT_DEMO_USERS if u["username"] == "pharmacist"), DEFAULT_DEMO_USERS[1])
     return {
         "username": default_user["username"],
         "role": default_user["role"],

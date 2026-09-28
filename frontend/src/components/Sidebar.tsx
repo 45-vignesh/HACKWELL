@@ -13,7 +13,9 @@ import {
   BarChart3,
   History,
   Star,
-  Database
+  Database,
+  Receipt,
+  CalendarClock
 } from 'lucide-react';
 
 export type ActiveTab =
@@ -29,7 +31,9 @@ export type ActiveTab =
   | 'simulation'
   | 'analytics'
   | 'audit'
-  | 'data-quality';
+  | 'data-quality'
+  | 'billing'
+  | 'reminders';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -46,13 +50,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
   criticalAlertsCount,
   currentRole
 }) => {
+  const isPharmacistOrAdmin =
+    currentRole.toUpperCase().includes('PHARMACIST') ||
+    currentRole.toUpperCase().includes('ADMIN');
+
   const workspaceItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    ...(isPharmacistOrAdmin ? [
+      { id: 'billing', label: 'Billing', icon: Receipt },
+      { id: 'reminders', label: 'Refill Reminders', icon: CalendarClock }
+    ] : []),
     { id: 'approvals', label: 'Approvals', icon: ShieldCheck, badge: pendingApprovalsCount, badgeColor: 'bg-[#16A34A]/25 text-emerald-300' },
     { id: 'alerts', label: 'Live Alerts', icon: Bell, badge: criticalAlertsCount, badgeColor: 'bg-[#DC2626]/30 text-rose-200' },
     { id: 'inventory', label: 'Inventory', icon: Boxes },
     { id: 'forecasts', label: 'Forecasts', icon: TrendingUp },
   ];
+
 
   const operationsItems = [
     { id: 'procurement', label: 'Procurement', icon: ShoppingCart },

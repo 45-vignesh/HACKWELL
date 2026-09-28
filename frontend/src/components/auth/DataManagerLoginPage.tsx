@@ -33,6 +33,17 @@ const DEFAULT_COMPANIES: Company[] = [
   }
 ];
 
+const getBranchDMUsername = (branch?: Branch | null): string => {
+  if (!branch) return 'data_manager';
+  if (branch.id === 1) return 'data_manager';
+  if (branch.id === 2) return 'dm_annanagar';
+  if (branch.id === 3) return 'dm_tambaram';
+  if (branch.id === 4) return 'dm_apex_city';
+  if (branch.id === 5) return 'dm_apex_north';
+  const cleanCode = branch.code.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  return `dm_${cleanCode}`;
+};
+
 export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBack, onGoToRegister }) => {
   const { loginWithCredentials } = useAuth();
   
@@ -67,7 +78,20 @@ export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBa
     return 'company';
   });
 
-  const [username, setUsername] = useState('data_manager');
+  const [username, setUsername] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const bId = Number(params.get('branch_id'));
+      if (bId) {
+        if (bId === 1) return 'data_manager';
+        if (bId === 2) return 'dm_annanagar';
+        if (bId === 3) return 'dm_tambaram';
+        if (bId === 4) return 'dm_apex_city';
+        if (bId === 5) return 'dm_apex_north';
+      }
+    } catch {}
+    return 'data_manager';
+  });
   const [password, setPassword] = useState('DataManager@123');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -89,13 +113,19 @@ export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBa
 
   const handleSelectCompany = (comp: Company) => {
     setSelectedCompany(comp);
-    setSelectedBranch(comp.branches && comp.branches.length > 0 ? comp.branches[0] : null);
+    const firstBranch = comp.branches && comp.branches.length > 0 ? comp.branches[0] : null;
+    setSelectedBranch(firstBranch);
+    if (firstBranch) {
+      setUsername(getBranchDMUsername(firstBranch));
+    }
     setError(null);
     setStep('branch');
   };
 
   const handleSelectBranch = (br: Branch) => {
     setSelectedBranch(br);
+    setUsername(getBranchDMUsername(br));
+    setPassword('DataManager@123');
     setError(null);
     setStep('login');
   };
@@ -124,7 +154,7 @@ export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBa
   };
 
   const handleUseDemo = () => {
-    setUsername('data_manager');
+    setUsername(getBranchDMUsername(selectedBranch));
     setPassword('DataManager@123');
     setError(null);
   };
@@ -340,7 +370,7 @@ export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBa
               <div className="p-3 bg-white/70 border border-[#D9E8E3] rounded-2xl flex items-center justify-between">
                 <div className="text-[11px] text-[#647772]">
                   <span className="font-bold text-[#12332C]">Role Credentials:</span>
-                  <div className="font-mono text-[10px] text-[#006B4F]">data_manager / DataManager@123</div>
+                  <div className="font-mono text-[10px] text-[#006B4F]">{getBranchDMUsername(selectedBranch)} / DataManager@123</div>
                 </div>
                 <button
                   type="button"

@@ -33,6 +33,14 @@ const DEFAULT_COMPANIES: Company[] = [
   }
 ];
 
+const getCompanyAdminUsername = (company?: Company | null): string => {
+  if (!company) return 'admin';
+  if (company.id === 1) return 'admin';
+  if (company.id === 2) return 'admin_apex';
+  const cleanCode = company.code.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  return `admin_${cleanCode}`;
+};
+
 export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onGoToRegister }) => {
   const { loginWithCredentials } = useAuth();
   
@@ -55,7 +63,14 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onGoToRe
     return 'company';
   });
 
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const cId = Number(params.get('company_id'));
+      if (cId === 2) return 'admin_apex';
+    } catch {}
+    return 'admin';
+  });
   const [password, setPassword] = useState('Admin@123');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -84,6 +99,8 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onGoToRe
 
   const handleSelectCompany = (comp: Company) => {
     setSelectedCompany(comp);
+    setUsername(getCompanyAdminUsername(comp));
+    setPassword('Admin@123');
     setError(null);
     setStep('login');
   };
@@ -109,7 +126,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onGoToRe
   };
 
   const handleUseDemo = () => {
-    setUsername('admin');
+    setUsername(getCompanyAdminUsername(selectedCompany));
     setPassword('Admin@123');
     setError(null);
   };
@@ -272,7 +289,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onGoToRe
               <div className="p-3 bg-white/70 border border-[#D9E8E3] rounded-2xl flex items-center justify-between">
                 <div className="text-[11px] text-[#647772]">
                   <span className="font-bold text-[#12332C]">Role Credentials:</span>
-                  <div className="font-mono text-[10px] text-[#b88500]">admin / Admin@123</div>
+                  <div className="font-mono text-[10px] text-[#b88500]">{getCompanyAdminUsername(selectedCompany)} / Admin@123</div>
                 </div>
                 <button
                   type="button"
