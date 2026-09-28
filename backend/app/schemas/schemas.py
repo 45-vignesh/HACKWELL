@@ -1,0 +1,292 @@
+from datetime import datetime, date
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, ConfigDict
+from app.models.entities import (
+    CriticalityLevel, DepartmentType, BatchStatus, OrderStatus,
+    PriorityLevel, TransferStatus, RiskLevel, AlertSeverity,
+    AlertType, AlertStatus, ActionType, ApprovalStatus
+)
+
+# Base Models
+class MedicineBase(BaseModel):
+    code: str
+    name: str
+    generic_name: str
+    category: str
+    unit: str = "units"
+    criticality: CriticalityLevel = CriticalityLevel.MEDIUM
+    shelf_life_days: int = 365
+    reorder_threshold: int = 50
+    safety_stock: int = 30
+    unit_cost: float = 10.0
+    active: bool = True
+
+class MedicineResponse(MedicineBase):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class WardResponse(BaseModel):
+    id: int
+    code: str
+    name: str
+    department_id: int
+    bed_count: int
+    active: bool
+    model_config = ConfigDict(from_attributes=True)
+
+class DepartmentResponse(BaseModel):
+    id: int
+    code: str
+    name: str
+    type: str
+    floor: str
+    active: bool
+    wards: List[WardResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+class BatchResponse(BaseModel):
+    id: int
+    medicine_id: int
+    medicine_name: Optional[str] = None
+    ward_id: int
+    ward_name: Optional[str] = None
+    batch_number: str
+    initial_quantity: int
+    current_quantity: int
+    unit_cost: float
+    manufacturing_date: date
+    expiry_date: date
+    days_to_expiry: int
+    status: BatchStatus
+    model_config = ConfigDict(from_attributes=True)
+
+class InventoryItemResponse(BaseModel):
+    id: int
+    medicine_id: int
+    medicine_code: str
+    medicine_name: str
+    generic_name: str
+    category: str
+    criticality: CriticalityLevel
+    unit: str
+    unit_cost: float
+    ward_id: int
+    ward_name: str
+    department_name: str
+    current_stock: int
+    reserved_stock: int
+    available_stock: int
+    min_level: int
+    max_level: int
+    safety_stock: int
+    daily_consumption_avg: float
+    days_remaining: float
+    risk_level: RiskLevel
+    stock_status: str  # NORMAL, LOW, CRITICAL_LOW, SURPLUS
+    nearest_expiry_date: Optional[date] = None
+    days_to_nearest_expiry: Optional[int] = None
+    last_restocked_at: Optional[datetime] = None
+
+class ForecastPoint(BaseModel):
+    date: str
+    historical: Optional[float] = None
+    predicted: float
+    lower_bound: float
+    upper_bound: float
+    projected_stock: Optional[float] = None
+
+class ForecastResponse(BaseModel):
+    medicine_id: int
+    medicine_name: str
+    ward_id: int
+    ward_name: str
+    horizon_days: int
+    current_stock: int
+    total_predicted_demand: float
+    expected_daily_demand: float
+    estimated_stockout_days: Optional[float]
+    estimated_stockout_date: Optional[str]
+    confidence_score: float
+    mape_score: Optional[float] = None
+    mae_score: Optional[float] = None
+    rmse_score: Optional[float] = None
+    risk_level: RiskLevel
+    forecast_points: List[ForecastPoint]
+    model_used: str
+    reasoning: str
+    usage_source: str = "MIMIC-Derived"
+    data_status: str = "sufficient"
+
+class AlertResponse(BaseModel):
+    id: int
+    alert_type: AlertType
+    severity: AlertSeverity
+    medicine_id: Optional[int] = None
+    medicine_name: Optional[str] = None
+    ward_id: Optional[int] = None
+    ward_name: Optional[str] = None
+    title: str
+    message: str
+    status: AlertStatus
+    recommended_action: Optional[str] = None
+    triggered_by_agent: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class StockTransferResponse(BaseModel):
+    id: int
+    transfer_number: str
+    medicine_id: int
+    medicine_name: str
+    from_ward_id: int
+    from_ward_name: str
+    to_ward_id: int
+    to_ward_name: str
+    quantity: int
+    reason: str
+    status: TransferStatus
+    risk_level: RiskLevel
+    approved_by: Optional[str]
+    initiated_by_agent: str
+    created_at: datetime
+    completed_at: Optional[datetime]
+    model_config = ConfigDict(from_attributes=True)
+
+class POItemResponse(BaseModel):
+    id: int
+    medicine_id: int
+    medicine_name: str
+    quantity: int
+    unit_price: float
+    total_price: float
+    model_config = ConfigDict(from_attributes=True)
+
+class PurchaseOrderResponse(BaseModel):
+    id: int
+    po_number: str
+    supplier_id: int
+    supplier_name: str
+    supplier_lead_time_days: int
+    supplier_reliability: float
+    total_amount: float
+    status: OrderStatus
+    priority: PriorityLevel
+    created_by_agent: str
+    approved_by: Optional[str]
+    order_date: datetime
+    expected_delivery_date: Optional[date]
+    items: List[POItemResponse]
+    notes: Optional[str]
+    model_config = ConfigDict(from_attributes=True)
+
+class ApprovalResponse(BaseModel):
+    id: int
+    action_type: ActionType
+    reference_id: int
+    medicine_id: Optional[int]
+    medicine_name: Optional[str]
+    requested_by_agent: str
+    risk_level: RiskLevel
+    justification: str
+    estimated_cost: float
+    requested_quantity: int
+    status: ApprovalStatus
+    decision_by: Optional[str]
+    decision_reason: Optional[str]
+    decided_at: Optional[datetime]
+    created_at: datetime
+    details: Optional[Dict[str, Any]] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class ApprovalActionRequest(BaseModel):
+    decision: str = Field(..., pattern="^(APPROVE|REJECT)$")
+    decision_by: str = "Chief Pharmacist"
+    reason: Optional[str] = "Approved via clinical inventory protocol"
+
+class DashboardSummaryResponse(BaseModel):
+    total_medicines: int
+    total_stock_units: int
+    critical_stockout_alerts: int
+    expiring_batches_90d: int
+    pending_approvals: int
+    active_agent_runs: int
+    overall_health_score: float
+    autonomous_actions_24h: int
+    risk_radar: List[Dict[str, Any]]
+    health_map: List[Dict[str, Any]]
+    recent_alerts: List[AlertResponse]
+    pending_approvals_list: List[ApprovalResponse]
+    agent_activity_summary: List[Dict[str, Any]]
+    data_sources: Optional[List[Dict[str, Any]]] = None
+
+class SimulationStep(BaseModel):
+    timestamp: str
+    agent: str
+    action: str
+    detail: str
+    severity: str = "INFO"
+
+class SimulationResponse(BaseModel):
+    scenario: str
+    status: str
+    message: str
+    medicine_name: str
+    affected_ward: str
+    initial_stock: int
+    spiked_daily_demand: float
+    days_to_stockout: float
+    steps: List[SimulationStep]
+    transfer_created: Optional[StockTransferResponse] = None
+    po_created: Optional[PurchaseOrderResponse] = None
+    approval_created: Optional[ApprovalResponse] = None
+
+class ChatMessageRequest(BaseModel):
+    message: str
+    context_medicine_id: Optional[int] = None
+
+class ChatMessageResponse(BaseModel):
+    reply: str
+    intent: str
+    tools_called: List[str]
+    data: Optional[Dict[str, Any]] = None
+    agent_reasoning: str
+
+class DataSourceResponse(BaseModel):
+    id: int
+    name: str
+    source_type: str
+    description: Optional[str] = None
+    record_count: int
+    last_imported: Optional[datetime] = None
+    status: str
+    model_config = ConfigDict(from_attributes=True)
+
+class DataQualitySummaryResponse(BaseModel):
+    records_inspected: int
+    records_used: int
+    mapped_medicines_count: int
+    total_medicines_count: int
+    unmapped_medicines_count: int
+    low_confidence_count: int
+    imported_daily_records: int
+    last_import_time: Optional[datetime] = None
+    import_status: str
+    latest_import_id: Optional[str] = None
+    mapped_medicines: List[Dict[str, Any]] = []
+    unmapped_samples: List[str] = []
+
+class MedicationUsageHistoryItem(BaseModel):
+    date: str
+    quantity_used: float
+    source: str
+    record_count: int
+
+class MedicationUsageHistoryResponse(BaseModel):
+    medicine_id: int
+    medicine_name: str
+    medicine_code: str
+    total_records: int
+    usage_source: str
+    history: List[MedicationUsageHistoryItem]
+
