@@ -1,0 +1,23 @@
+{
+  "name": "MediSentinel Cloud Workspace",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [5173, 8000, 5432],
+  "portsAttributes": {
+    "5173": {
+      "label": "MediSentinel Frontend",
+      "onAutoForward": "openBrowser"
+    },
+    "8000": {
+      "label": "MediSentinel Backend API",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL Database",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "docker compose up -d"
+}
