@@ -85,7 +85,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             </div>
             <div>
               <h2 className="text-base font-bold text-white tracking-wide">Hospital Security & RBAC Portal</h2>
-              <p className="text-xs text-[#D9E8E3]/80">Select an authenticated role to demonstrate security boundaries</p>
+              <p className="text-xs text-[#D9E8E3]/80">Select an authenticated role to switch access permissions</p>
             </div>
           </div>
           <button

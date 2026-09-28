@@ -300,3 +300,20 @@ export interface BatchValidationResult {
   errors: any[];
 }
 
+export interface BatchImportResponse {
+  status: string;
+  database: string;
+  primary_table: string;
+  message: string;
+  total_submitted: number;
+  imported_count: number;
+  inserted_count: number;
+  updated_count: number;
+  rejected_count: number;
+  warning_count: number;
+  source: string;
+  trust_status: string;
+  timestamp: string;
+  rejected_errors?: any[];
+}
+

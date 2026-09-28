@@ -59,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'distribution', label: 'Transfers', icon: ArrowLeftRight },
     { id: 'waste', label: 'Waste Guard', icon: Trash2 },
     { id: 'agents', label: 'Agent Network', icon: Bot },
-    { id: 'simulation', label: 'Dengue Demo', icon: Zap, highlight: true },
+    { id: 'simulation', label: 'Dengue Outbreak', icon: Zap, highlight: true },
     { id: 'data-quality', label: 'Data Quality', icon: Database },
     { id: 'analytics', label: 'Pilot Targets', icon: BarChart3 },
     { id: 'audit', label: 'Audit Ledger', icon: History },
@@ -105,7 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {item.highlight && !item.badge && (
           <span className="px-2 py-0.5 text-[9px] rounded-full font-bold uppercase bg-[#F4B400] text-[#12332C] shadow-sm">
-            DEMO
+            SURGE
           </span>
         )}
       </button>

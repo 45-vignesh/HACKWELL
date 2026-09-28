@@ -27,6 +27,7 @@ import { api } from './services/api';
 const AppContent: React.FC = () => {
   const { role, user, isAuthenticated, isLoginModalOpen, setIsLoginModalOpen } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [tabHistory, setTabHistory] = useState<ActiveTab[]>(['dashboard']);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -34,6 +35,23 @@ const AppContent: React.FC = () => {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [selectedInventoryId, setSelectedInventoryId] = useState<number | null>(null);
   const [forecastMedicineId, setForecastMedicineId] = useState<number>(1);
+
+  const handleNavigateTab = (newTab: ActiveTab) => {
+    setTabHistory((prev) => (prev[prev.length - 1] === newTab ? prev : [...prev, newTab]));
+    setActiveTab(newTab);
+  };
+
+  const handleBack = () => {
+    if (tabHistory.length > 1) {
+      const nextHistory = [...tabHistory];
+      nextHistory.pop(); // remove current
+      const prevTab = nextHistory[nextHistory.length - 1];
+      setTabHistory(nextHistory);
+      setActiveTab(prevTab);
+    } else {
+      setActiveTab('dashboard');
+    }
+  };
 
   const fetchSummary = async (showRefreshSpinner = false) => {
     if (showRefreshSpinner) setIsRefreshing(true);
@@ -64,7 +82,7 @@ const AppContent: React.FC = () => {
 
   const handleNavigateToForecast = (medId: number) => {
     setForecastMedicineId(medId);
-    setActiveTab('forecasts');
+    handleNavigateTab('forecasts');
   };
 
   return (
@@ -74,7 +92,7 @@ const AppContent: React.FC = () => {
         {/* Left Navigation Sidebar */}
         <Sidebar
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={handleNavigateTab}
           pendingApprovalsCount={summary?.pending_approvals || 0}
           criticalAlertsCount={summary?.critical_stockout_alerts || 0}
           currentRole={role}
@@ -87,9 +105,11 @@ const AppContent: React.FC = () => {
             currentRole={role}
             setCurrentRole={setCurrentRole}
             onOpenAssistant={() => setIsAssistantOpen(true)}
-            onRunSimulation={() => setActiveTab('simulation')}
+            onRunSimulation={() => handleNavigateTab('simulation')}
             onRefreshData={() => fetchSummary(true)}
             isRefreshing={isRefreshing}
+            onBack={handleBack}
+            canGoBack={activeTab !== 'dashboard'}
           />
 
           {/* Dynamic Scrollable Page Body */}

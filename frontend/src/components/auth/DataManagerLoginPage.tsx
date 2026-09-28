@@ -118,10 +118,10 @@ export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBa
             </div>
           </div>
 
-          {/* Dedicated Demo Credentials Box */}
+          {/* Dedicated Role Credentials Box */}
           <div className="p-3 bg-white border border-[#D9E8E3] rounded-2xl flex items-center justify-between text-xs">
             <div>
-              <p className="font-semibold text-[#12332C]">Demo Credentials:</p>
+              <p className="font-semibold text-[#12332C]">Role Credentials:</p>
               <p className="text-[11px] text-[#647772] font-mono mt-0.5">
                 data_manager / DataManager@123
               </p>
@@ -131,7 +131,7 @@ export const DataManagerLoginPage: React.FC<DataManagerLoginPageProps> = ({ onBa
               onClick={handleUseDemo}
               className="text-[11px] font-bold text-[#006B4F] hover:underline px-2.5 py-1 rounded-lg bg-[#006B4F]/10 hover:bg-[#006B4F]/20 transition-colors"
             >
-              Fill Demo
+              Use Role Credentials
             </button>
           </div>
 

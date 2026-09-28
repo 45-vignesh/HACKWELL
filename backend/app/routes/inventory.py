@@ -422,6 +422,9 @@ def import_batch(
     now = datetime.utcnow()
 
     imported_count = 0
+    inserted_count = 0
+    updated_count = 0
+
     for r in valid_rows:
         med_id = r["medicine_id"]
         ward_id = r["ward_id"]
@@ -444,6 +447,7 @@ def import_batch(
             inv.validated_by = current_user["username"]
             inv.validated_at = now
             inv.validation_notes = reason
+            updated_count += 1
         else:
             inv = Inventory(
                 medicine_id=med_id,
@@ -463,6 +467,7 @@ def import_batch(
                 last_modified_at=now
             )
             db.add(inv)
+            inserted_count += 1
 
         # Audit trail
         audit = DataAuditTrail(
@@ -487,9 +492,17 @@ def import_batch(
 
     return {
         "status": "SUCCESS",
+        "database": "PostgreSQL",
+        "primary_table": "inventory",
+        "message": f"{imported_count} records imported successfully into PostgreSQL → inventory",
         "total_submitted": report["total_records"],
         "imported_count": imported_count,
+        "inserted_count": inserted_count,
+        "updated_count": updated_count,
         "rejected_count": report["rejected_count"],
         "warning_count": report["warning_count"],
+        "source": "MANUAL",
+        "trust_status": "VALIDATED",
+        "timestamp": now.isoformat(),
         "rejected_errors": report["errors"]
     }

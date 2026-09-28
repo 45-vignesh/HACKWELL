@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles, Zap, RefreshCw, Calendar, Shield, User, ChevronDown, LogOut } from 'lucide-react';
+import { Search, Sparkles, Zap, RefreshCw, Calendar, Shield, User, ChevronDown, LogOut, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types';
 
@@ -10,6 +10,8 @@ interface HeaderProps {
   onRunSimulation: () => void;
   onRefreshData: () => void;
   isRefreshing?: boolean;
+  onBack?: () => void;
+  canGoBack?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,7 +20,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAssistant,
   onRunSimulation,
   onRefreshData,
-  isRefreshing = false
+  isRefreshing = false,
+  onBack,
+  canGoBack = false
 }) => {
   const { user, role, switchRole, setIsLoginModalOpen, logout } = useAuth();
 
@@ -43,9 +47,19 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-16 px-6 flex items-center justify-between border-b border-[#D9E8E3] bg-white/95 backdrop-blur-md sticky top-0 z-20">
-      {/* Search Input */}
-      <div className="flex-1 max-w-sm">
-        <div className="relative">
+      {/* Search Input & Optional Back Arrow */}
+      <div className="flex items-center space-x-2.5 flex-1 max-w-sm">
+        {canGoBack && (
+          <button
+            onClick={onBack}
+            title="Back"
+            className="w-9 h-9 rounded-full bg-[#F3FAF7] border border-[#D9E8E3] hover:bg-white hover:border-[#006B4F] flex items-center justify-center text-[#12332C] hover:text-[#006B4F] transition-all shadow-xs shrink-0 group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+          </button>
+        )}
+
+        <div className="relative flex-1">
           <Search className="w-3.5 h-3.5 text-[#647772] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -88,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
           className="px-4 py-1.5 rounded-full bg-[#F4B400] hover:bg-[#e0a400] text-[#12332C] text-xs font-bold shadow-sm flex items-center space-x-2 transition-all active:scale-95"
         >
           <Zap className="w-3.5 h-3.5 fill-[#12332C]" />
-          <span>Dengue Surge Demo</span>
+          <span>Dengue Surge Simulation</span>
         </button>
 
         {/* Role Selector & Login Portal Button */}

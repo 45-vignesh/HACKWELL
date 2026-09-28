@@ -115,10 +115,13 @@ class InventoryValidator:
         med_code = str(row.get("medicine_code") or "").strip()
         ward_code = str(row.get("ward_code") or "").strip()
 
-        if not med_code:
-            errors.append("Medicine code is required.")
-        if not ward_code:
-            errors.append("Ward code is required.")
+        med_name_input = str(row.get("medicine_name") or "").strip()
+        ward_name_input = str(row.get("ward_name") or "").strip()
+
+        if not med_code and not med_name_input:
+            errors.append("Medicine code or name is required.")
+        if not ward_code and not ward_name_input:
+            errors.append("Ward code or name is required.")
 
         # Check medicine existence
         med = None
@@ -126,8 +129,37 @@ class InventoryValidator:
             med = db.query(Medicine).filter(
                 (Medicine.code.ilike(med_code)) | (Medicine.name.ilike(med_code))
             ).first()
+
             if not med:
-                errors.append(f"Medicine '{med_code}' does not exist in master formulary.")
+                # Check known manual dataset code aliases
+                alias_map = {
+                    "MED-PARA": "MED-AIN-PCM-TAB",
+                    "MED-CFT": "MED-ANT-CEF",
+                    "MED-AZI": "MED-AZI-500",
+                    "MED-OND": "MED-GIT-OND",
+                    "MED-RLG": "MED-IVF-RL",
+                    "MED-NS9": "MED-IVF-NS",
+                    "MED-D5": "MED-IVF-D5",
+                    "MED-FUR": "MED-FUR-40",
+                    "MED-INS": "MED-DIA-INS",
+                    "MED-HEP": "MED-HEP-5000",
+                    "MED-CEFTRX": "MED-ANT-CEF",
+                    "MED-PARACET": "MED-AIN-PCM-TAB",
+                    "MED-DEXTR5": "MED-IVF-D5",
+                    "MED-INSULIN": "MED-DIA-INS",
+                    "MED-SALBUT": "MED-AIN-PCM-TAB"
+                }
+                target_code = alias_map.get(med_code.upper())
+                if target_code:
+                    med = db.query(Medicine).filter(Medicine.code == target_code).first()
+
+        if not med and med_name_input:
+            med = db.query(Medicine).filter(
+                (Medicine.name.ilike(f"%{med_name_input}%")) | (Medicine.code.ilike(f"%{med_name_input}%"))
+            ).first()
+
+        if not med:
+            errors.append(f"Medicine '{med_code or med_name_input}' does not exist in master formulary.")
 
         # Check ward existence
         ward = None
@@ -135,8 +167,29 @@ class InventoryValidator:
             ward = db.query(Ward).filter(
                 (Ward.code.ilike(ward_code)) | (Ward.name.ilike(ward_code))
             ).first()
+
             if not ward:
-                errors.append(f"Ward '{ward_code}' does not exist in hospital departments.")
+                ward_alias_map = {
+                    "EMR": "WARD-EMERG",
+                    "ICU": "WARD-MICU",
+                    "OPD": "WARD-OPD",
+                    "PED": "WARD-PED",
+                    "GEN": "WARD-GENMED",
+                    "WARD-ICU": "WARD-MICU",
+                    "WARD-EMERG": "WARD-EMERG",
+                    "WARD-INPAT": "WARD-GENMED"
+                }
+                target_ward = ward_alias_map.get(ward_code.upper())
+                if target_ward:
+                    ward = db.query(Ward).filter(Ward.code == target_ward).first()
+
+        if not ward and ward_name_input:
+            ward = db.query(Ward).filter(
+                (Ward.name.ilike(f"%{ward_name_input}%")) | (Ward.code.ilike(f"%{ward_name_input}%"))
+            ).first()
+
+        if not ward:
+            errors.append(f"Ward '{ward_code or ward_name_input}' does not exist in hospital departments.")
 
         # Duplicate detection within batch / database
         key = (med_code.upper(), ward_code.upper())
@@ -203,6 +256,19 @@ class InventoryValidator:
                 errors.append(f"Expiry date ({parsed_exp}) cannot be earlier than received date ({parsed_rec}).")
 
         # Abnormal value warnings
+        if med and ward:
+            existing_inv = db.query(Inventory).filter(
+                Inventory.medicine_id == med.id,
+                Inventory.ward_id == ward.id
+            ).first()
+            if existing_inv and existing_inv.current_stock > 0:
+                old_s = existing_inv.current_stock
+                if current_stock >= old_s * 2 or abs(current_stock - old_s) >= 500:
+                    warnings.append(
+                        f"Abnormal stock jump: current stock {old_s} changing to {current_stock} "
+                        f"(change of {abs(current_stock - old_s)} units)."
+                    )
+
         if current_stock > 2000:
             warnings.append(f"Abnormally high current stock ({current_stock} units). Potential data entry scale error.")
 

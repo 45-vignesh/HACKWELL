@@ -118,10 +118,10 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack }) => {
             </div>
           </div>
 
-          {/* Dedicated Demo Credentials Box */}
+          {/* Dedicated Role Credentials Box */}
           <div className="p-3 bg-white border border-[#D9E8E3] rounded-2xl flex items-center justify-between text-xs">
             <div>
-              <p className="font-semibold text-[#12332C]">Demo Credentials:</p>
+              <p className="font-semibold text-[#12332C]">Role Credentials:</p>
               <p className="text-[11px] text-[#647772] font-mono mt-0.5">
                 admin / Admin@123
               </p>
@@ -131,7 +131,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack }) => {
               onClick={handleUseDemo}
               className="text-[11px] font-extrabold text-[#12332C] hover:underline px-2.5 py-1 rounded-lg bg-[#F4B400]/20 hover:bg-[#F4B400]/30 transition-colors"
             >
-              Fill Demo
+              Use Role Credentials
             </button>
           </div>
 

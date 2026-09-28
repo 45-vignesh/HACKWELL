@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, DollarSign, Package, AlertTriangle, ArrowRight, ShieldCheck, Truck } from 'lucide-react';
+import { X, Calendar, DollarSign, Package, AlertTriangle, ArrowRight, ArrowLeft, ShieldCheck, Truck } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { api } from '../services/api';
 
@@ -36,8 +36,16 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
       <div className="bg-white border border-[#D9E8E3] rounded-[28px] w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-[#12332C]">
         {/* Modal Header */}
         <div className="p-6 border-b border-[#D9E8E3] flex items-center justify-between bg-[#F3FAF7]">
-          {data ? (
-            <div>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={onClose}
+              title="Back"
+              className="w-9 h-9 rounded-full bg-white border border-[#D9E8E3] hover:border-[#006B4F] flex items-center justify-center text-[#12332C] hover:text-[#006B4F] transition-all shadow-xs shrink-0 group"
+            >
+              <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+            </button>
+            {data ? (
+              <div>
               <div className="flex items-center space-x-3 flex-wrap gap-y-1">
                 <h2 className="text-lg font-bold text-[#12332C] tracking-tight">{data.medicine.name}</h2>
                 <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
@@ -73,6 +81,7 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
           ) : (
             <div className="h-10 w-48 bg-[#D9E8E3]/50 animate-pulse rounded-full"></div>
           )}
+          </div>
 
           <div className="flex items-center space-x-2">
             {data && (

@@ -22,6 +22,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   const [categoryFilter, setCategoryFilter] = useState('');
   const [wardFilter, setWardFilter] = useState('');
   const [riskFilter, setRiskFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
   const [selectedEditItem, setSelectedEditItem] = useState<InventoryItem | null>(null);
   const [isDataMgrModalOpen, setIsDataMgrModalOpen] = useState(false);
 
@@ -52,6 +53,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
   const filteredItems = items.filter((item) => {
     if (wardFilter && item.ward_name !== wardFilter) return false;
+    if (sourceFilter && (item.data_source || 'SYNTHETIC') !== sourceFilter) return false;
     return true;
   });
 
@@ -103,7 +105,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
               <span>Ward & Pharmacy Inventory</span>
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-[#008F83]/10 text-[#006B4F] border border-[#008F83]/25 font-semibold">
-              Operational Stock: Synthetic
+              Operational Stock: Multi-Source
             </span>
           </div>
           <p className="text-xs text-[#647772] mt-0.5">
@@ -118,7 +120,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
               className="px-3.5 py-1.5 rounded-full bg-[#006B4F] hover:bg-[#004D3A] text-white text-xs font-bold shadow-sm flex items-center space-x-1.5 transition-all active:scale-95"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Data Governance & CSV Import</span>
+              <span>Import Dataset</span>
             </button>
           )}
 
@@ -147,6 +149,16 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
         </form>
 
         {/* Dropdown Pills */}
+        <select
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value)}
+          className="bg-[#F3FAF7] border border-[#D9E8E3] text-[#12332C] text-xs rounded-full px-3.5 py-1.5 focus:outline-none focus:border-[#006B4F] cursor-pointer font-medium"
+        >
+          <option value="">All Data Sources</option>
+          <option value="MANUAL">Source: MANUAL</option>
+          <option value="SYNTHETIC">Source: SYNTHETIC</option>
+        </select>
+
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
@@ -358,6 +370,10 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
         isOpen={isDataMgrModalOpen}
         onClose={() => setIsDataMgrModalOpen(false)}
         onSuccess={() => loadData()}
+        onViewImportedRecords={() => {
+          setSourceFilter('MANUAL');
+          loadData();
+        }}
       />
     </div>
   );

@@ -38,8 +38,8 @@ export const SimulationPage: React.FC<SimulationPageProps> = ({
         await api.decideApproval(
           pending[0].id,
           'APPROVE',
-          'Demo Outbreak Emergency Protocol Authorized',
-          'Chief Pharmacist (Hackathon Demo)'
+          'Outbreak Emergency Protocol Authorized',
+          'Chief Pharmacist (Clinical Sign-off)'
         );
         setApprovedInDemo(true);
         onRefreshData();

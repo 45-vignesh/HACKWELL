@@ -133,7 +133,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-2.5 py-1 rounded-full bg-[#008F83]/10 border border-[#008F83]/25 text-[#006B4F] font-mono text-[11px] flex items-center space-x-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#006B4F]"></span>
-                <span>Medication Usage: <strong>MIMIC-IV Demo</strong> (Historical Data)</span>
+                <span>Medication Usage: <strong>MIMIC-IV Clinical Database</strong> (Historical Data)</span>
               </span>
               <span className="px-2.5 py-1 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/25 text-[#B45309] font-mono text-[11px] flex items-center space-x-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]"></span>
@@ -463,7 +463,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="p-3.5 bg-[#F3FAF7] border border-[#D9E8E3] rounded-xl space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#F4B400]/20 text-[#12332C] border border-[#F4B400]/40 uppercase font-bold">
-                  Demo Flow
+                  Simulation Flow
                 </span>
                 <Zap className="w-3.5 h-3.5 text-[#F4B400] fill-current" />
               </div>
